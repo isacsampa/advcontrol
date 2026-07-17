@@ -2566,14 +2566,16 @@ function renderOrgTasksTable() {
   const countBadge = document.getElementById('orgTaskCount');
   
   let tasks = AppState.orgTasks || [];
-  const isOwner = AppState.userProfile?.role === 'owner';
   const role = AppState.userProfile?.role;
   const userFullName = AppState.userProfile?.full_name;
-
-  // Filtragem para o associado: apenas tarefas atribuídas a ele e que tenham prazo para HOJE (YYYY-MM-DD)
-  if (role === 'associate') {
-    const todayStr = new Date().toLocaleDateString('en-CA'); // Retorna YYYY-MM-DD
-    tasks = tasks.filter(t => t.assignee_name === userFullName && t.deadline === todayStr);
+  const isOwner = (role === 'owner');
+  
+  // Se não for o Dono (Owner), o funcionário (Associado, Financeiro, Secretária) só visualiza as tarefas atribuídas a ele
+  if (role !== 'owner' && userFullName) {
+    tasks = tasks.filter(t => {
+      const assigneeName = t.assignee_name || t.assignee || '';
+      return assigneeName.toLowerCase().trim() === userFullName.toLowerCase().trim();
+    });
   }
   
   // Oculta ou mostra o cabeçalho da coluna de Ações na tabela
