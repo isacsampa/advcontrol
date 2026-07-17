@@ -490,18 +490,26 @@ async function getTransactions() {
   const client = getSupabaseClient();
   if (!client) return [];
 
-  const { data, error } = await client
-    .from('transactions')
-    .select(`
-      *,
-      clients(name),
-      cases(title, case_number),
-      user_profiles!transactions_recorded_by_fkey(full_name)
-    `)
-    .order('due_date', { ascending: false });
+  try {
+    const { data, error } = await client
+      .from('transactions')
+      .select(`
+        *,
+        clients(name),
+        cases(title, case_number),
+        user_profiles!transactions_recorded_by_fkey(full_name)
+      `)
+      .order('due_date', { ascending: false });
 
-  if (error) throw error;
-  return data;
+    if (error) {
+      console.warn("Erro ao buscar transações do Supabase:", error);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.warn("Falha ao ler transações:", err);
+    return [];
+  }
 }
 
 async function createTransaction(tenantId, recordedById, transData) {
@@ -587,17 +595,25 @@ async function getTimesheets() {
   const client = getSupabaseClient();
   if (!client) return [];
 
-  const { data, error } = await client
-    .from('timesheets')
-    .select(`
-      *,
-      cases(title),
-      user_profiles(full_name)
-    `)
-    .order('work_date', { ascending: false });
+  try {
+    const { data, error } = await client
+      .from('timesheets')
+      .select(`
+        *,
+        cases(title),
+        user_profiles(full_name)
+      `)
+      .order('work_date', { ascending: false });
 
-  if (error) throw error;
-  return data;
+    if (error) {
+      console.warn("Erro ao buscar timesheets do Supabase:", error);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.warn("Falha ao ler timesheets:", err);
+    return [];
+  }
 }
 
 async function createTimesheet(tenantId, timesheetData) {
@@ -700,13 +716,21 @@ async function getUserProfiles() {
   const client = getSupabaseClient();
   if (!client) return [];
 
-  const { data, error } = await client
-    .from('user_profiles')
-    .select('*')
-    .order('full_name', { ascending: true });
+  try {
+    const { data, error } = await client
+      .from('user_profiles')
+      .select('*')
+      .order('full_name', { ascending: true });
 
-  if (error) throw error;
-  return data;
+    if (error) {
+      console.warn("Erro ao buscar perfis de usuário do Supabase:", error);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.warn("Falha ao ler perfis de usuário:", err);
+    return [];
+  }
 }
 
 async function updateUserProfile(profileId, profileData) {

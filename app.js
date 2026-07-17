@@ -2671,8 +2671,8 @@ async function initOrganizationTab() {
     showLoader(false);
   }
 
-  // Controle de exibição do formulário de criação de tarefas (apenas Dono cria)
-  const isOwner = AppState.userProfile?.role === 'owner';
+  // Controle de exibição do formulário de criação de tarefas (apenas Dono/Sócio cria)
+  const isOwner = (AppState.userProfile?.role === 'owner' || AppState.userProfile?.role === 'partner');
   const formCard = document.getElementById('orgTaskFormCard');
   const layoutGrid = document.getElementById('orgTasksLayoutGrid');
   if (formCard && layoutGrid) {
@@ -2784,6 +2784,11 @@ async function handleDeleteOrgTask(taskId) {
   }
 }
 
+function normalizeStr(str) {
+  if (!str) return '';
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
 /**
  * Renderiza a tabela de tarefas na tela
  */
@@ -2794,13 +2799,14 @@ function renderOrgTasksTable() {
   let tasks = AppState.orgTasks || [];
   const role = AppState.userProfile?.role;
   const userFullName = AppState.userProfile?.full_name;
-  const isOwner = (role === 'owner');
+  const isOwner = (role === 'owner' || role === 'partner');
   
-  // Se não for o Dono (Owner), o funcionário (Associado, Financeiro, Secretária) só visualiza as tarefas atribuídas a ele
-  if (role !== 'owner' && userFullName) {
+  // Apenas associados têm a visualização restrita às suas próprias tarefas atribuídas.
+  // Donos (owner), Sócios (partner), Secretárias (secretary) e Financeiro (financial) enxergam todas as tarefas do escritório.
+  if (role === 'associate' && userFullName) {
     tasks = tasks.filter(t => {
       const assigneeName = t.assignee_name || t.assignee || '';
-      return assigneeName.toLowerCase().trim() === userFullName.toLowerCase().trim();
+      return normalizeStr(assigneeName) === normalizeStr(userFullName);
     });
   }
   
@@ -3673,7 +3679,7 @@ window.copyInviteLink = function(role) {
  */
 async function initAgendaTab() {
   const role = AppState.userProfile?.role;
-  const isOwnerOrSecretary = (role === 'owner' || role === 'secretary');
+  const isOwnerOrSecretary = (role === 'owner' || role === 'partner' || role === 'secretary');
 
   // Controle de exibição do formulário de criação (somente Dono e Secretária cadastram)
   const formCard = document.getElementById('agendaFormCard');
@@ -3823,13 +3829,13 @@ function renderAppointmentsList() {
 
   const role = AppState.userProfile?.role;
   const userFullName = AppState.userProfile?.full_name;
-  const isOwnerOrSecretary = (role === 'owner' || role === 'secretary');
+  const isOwnerOrSecretary = (role === 'owner' || role === 'partner' || role === 'secretary');
 
   let list = AppState.appointments || [];
 
   // 1. Filtragem para associados: eles só veem compromissos deles mesmos
   if (role === 'associate') {
-    list = list.filter(a => a.assignee_name === userFullName);
+    list = list.filter(a => normalizeStr(a.assignee_name) === normalizeStr(userFullName));
   }
 
   // 2. Filtro de Busca por Título ou Responsável
@@ -4212,9 +4218,16 @@ function applyOfficeTheme(settings) {
 }
 
 function adjustColorBrightness(hex, percent) {
+  if (!hex || typeof hex !== 'string' || hex.charAt(0) !== '#' || hex.length !== 7) {
+    return hex || '#E84C0B';
+  }
   let R = parseInt(hex.substring(1, 3), 16);
   let G = parseInt(hex.substring(3, 5), 16);
   let B = parseInt(hex.substring(5, 7), 16);
+
+  if (isNaN(R) || isNaN(G) || isNaN(B)) {
+    return hex;
+  }
 
   R = parseInt((R * (100 + percent)) / 100);
   G = parseInt((G * (100 + percent)) / 100);
