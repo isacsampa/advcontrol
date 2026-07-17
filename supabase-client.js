@@ -160,54 +160,123 @@ async function getCurrentUserProfile(userId) {
 
 async function getClients() {
   const client = getSupabaseClient();
-  if (!client) return [];
+  if (!client) return _getClientsLocalStorage();
 
-  const { data, error } = await client
-    .from('clients')
-    .select('*')
-    .order('name', { ascending: true });
+  try {
+    const { data, error } = await client
+      .from('clients')
+      .select('*')
+      .order('name', { ascending: true });
 
-  if (error) throw error;
-  return data;
+    if (error) {
+      console.warn("Erro ao carregar clientes do Supabase. Usando LocalStorage fallback.", error);
+      return _getClientsLocalStorage();
+    }
+    return data || [];
+  } catch (err) {
+    console.warn("Falha de conexão com Supabase. Usando LocalStorage fallback.", err);
+    return _getClientsLocalStorage();
+  }
 }
 
 async function createClient(tenantId, clientData) {
   const client = getSupabaseClient();
-  if (!client) throw new Error("Supabase não configurado.");
+  if (!client) return _createClientLocalStorage(tenantId, clientData);
 
-  const { data, error } = await client
-    .from('clients')
-    .insert([{ tenant_id: tenantId, ...clientData }])
-    .select();
+  try {
+    const { data, error } = await client
+      .from('clients')
+      .insert([{ tenant_id: tenantId, ...clientData }])
+      .select();
 
-  if (error) throw error;
-  return data[0];
+    if (error) {
+      console.warn("Erro ao inserir cliente no Supabase. Gravando localmente.", error);
+      return _createClientLocalStorage(tenantId, clientData);
+    }
+    return data[0];
+  } catch (err) {
+    console.warn("Falha ao salvar no Supabase. Gravando no LocalStorage.", err);
+    return _createClientLocalStorage(tenantId, clientData);
+  }
 }
 
 async function updateClient(clientId, clientData) {
   const client = getSupabaseClient();
-  if (!client) throw new Error("Supabase não configurado.");
+  if (!client) return _updateClientLocalStorage(clientId, clientData);
 
-  const { data, error } = await client
-    .from('clients')
-    .update(clientData)
-    .eq('id', clientId)
-    .select();
+  try {
+    const { data, error } = await client
+      .from('clients')
+      .update(clientData)
+      .eq('id', clientId)
+      .select();
 
-  if (error) throw error;
-  return data[0];
+    if (error) {
+      console.warn("Erro ao atualizar cliente no Supabase. Gravando localmente.", error);
+      return _updateClientLocalStorage(clientId, clientData);
+    }
+    return data[0];
+  } catch (err) {
+    console.warn("Falha ao atualizar no Supabase. Gravando no LocalStorage.", err);
+    return _updateClientLocalStorage(clientId, clientData);
+  }
 }
 
 async function deleteClient(clientId) {
   const client = getSupabaseClient();
-  if (!client) throw new Error("Supabase não configurado.");
+  if (!client) return _deleteClientLocalStorage(clientId);
 
-  const { error } = await client
-    .from('clients')
-    .delete()
-    .eq('id', clientId);
+  try {
+    const { error } = await client
+      .from('clients')
+      .delete()
+      .eq('id', clientId);
 
-  if (error) throw error;
+    if (error) {
+      console.warn("Erro ao deletar cliente no Supabase. Deletando localmente.", error);
+      return _deleteClientLocalStorage(clientId);
+    }
+    return true;
+  } catch (err) {
+    console.warn("Falha de conexão ao deletar no Supabase. Deletando localmente.", err);
+    return _deleteClientLocalStorage(clientId);
+  }
+}
+
+// Helpers de fallback para o LocalStorage - Clientes
+function _getClientsLocalStorage() {
+  return JSON.parse(localStorage.getItem('advcontrol_clients') || '[]');
+}
+
+function _createClientLocalStorage(tenantId, clientData) {
+  const list = JSON.parse(localStorage.getItem('advcontrol_clients') || '[]');
+  const newItem = {
+    id: 'local_client_' + Math.random().toString(36).substr(2, 9),
+    tenant_id: tenantId,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    ...clientData
+  };
+  list.push(newItem);
+  localStorage.setItem('advcontrol_clients', JSON.stringify(list));
+  return newItem;
+}
+
+function _updateClientLocalStorage(clientId, clientData) {
+  const list = JSON.parse(localStorage.getItem('advcontrol_clients') || '[]');
+  const idx = list.findIndex(c => c.id === clientId);
+  if (idx !== -1) {
+    list[idx] = { ...list[idx], ...clientData, updated_at: new Date().toISOString() };
+    localStorage.setItem('advcontrol_clients', JSON.stringify(list));
+    return list[idx];
+  }
+  return null;
+}
+
+function _deleteClientLocalStorage(clientId) {
+  let list = JSON.parse(localStorage.getItem('advcontrol_clients') || '[]');
+  list = list.filter(c => c.id !== clientId);
+  localStorage.setItem('advcontrol_clients', JSON.stringify(list));
   return true;
 }
 
@@ -217,60 +286,143 @@ async function deleteClient(clientId) {
 
 async function getCases() {
   const client = getSupabaseClient();
-  if (!client) return [];
+  if (!client) return _getCasesLocalStorage();
 
-  // Realiza o join com a tabela de clientes e perfis de sócios
-  const { data, error } = await client
-    .from('cases')
-    .select(`
-      *,
-      clients(name),
-      originating:user_profiles!cases_originating_partner_id_fkey(full_name),
-      responsible:user_profiles!cases_responsible_partner_id_fkey(full_name)
-    `)
-    .order('title', { ascending: true });
+  try {
+    // Realiza o join com a tabela de clientes e perfis de sócios
+    const { data, error } = await client
+      .from('cases')
+      .select(`
+        *,
+        clients(name),
+        originating:user_profiles!cases_originating_partner_id_fkey(full_name),
+        responsible:user_profiles!cases_responsible_partner_id_fkey(full_name)
+      `)
+      .order('title', { ascending: true });
 
-  if (error) throw error;
-  return data;
+    if (error) {
+      console.warn("Erro ao ler Casos do Supabase. Usando LocalStorage fallback.", error);
+      return _getCasesLocalStorage();
+    }
+    return data || [];
+  } catch (err) {
+    console.warn("Falha de conexão ao ler Casos. Usando LocalStorage fallback.", err);
+    return _getCasesLocalStorage();
+  }
 }
 
 async function createCase(tenantId, caseData) {
   const client = getSupabaseClient();
-  if (!client) throw new Error("Supabase não configurado.");
+  if (!client) return _createCaseLocalStorage(tenantId, caseData);
 
-  const { data, error } = await client
-    .from('cases')
-    .insert([{ tenant_id: tenantId, ...caseData }])
-    .select();
+  try {
+    const { data, error } = await client
+      .from('cases')
+      .insert([{ tenant_id: tenantId, ...caseData }])
+      .select();
 
-  if (error) throw error;
-  return data[0];
+    if (error) {
+      console.warn("Erro ao criar caso no Supabase. Gravando localmente.", error);
+      return _createCaseLocalStorage(tenantId, caseData);
+    }
+    return data[0];
+  } catch (err) {
+    console.warn("Falha ao salvar caso no Supabase. Gravando no LocalStorage.", err);
+    return _createCaseLocalStorage(tenantId, caseData);
+  }
 }
 
 async function updateCase(caseId, caseData) {
   const client = getSupabaseClient();
-  if (!client) throw new Error("Supabase não configurado.");
+  if (!client) return _updateCaseLocalStorage(caseId, caseData);
 
-  const { data, error } = await client
-    .from('cases')
-    .update(caseData)
-    .eq('id', caseId)
-    .select();
+  try {
+    const { data, error } = await client
+      .from('cases')
+      .update(caseData)
+      .eq('id', caseId)
+      .select();
 
-  if (error) throw error;
-  return data[0];
+    if (error) {
+      console.warn("Erro ao atualizar caso no Supabase. Gravando localmente.", error);
+      return _updateCaseLocalStorage(caseId, caseData);
+    }
+    return data[0];
+  } catch (err) {
+    console.warn("Falha ao atualizar caso no Supabase. Gravando no LocalStorage.", err);
+    return _updateCaseLocalStorage(caseId, caseData);
+  }
 }
 
 async function deleteCase(caseId) {
   const client = getSupabaseClient();
-  if (!client) throw new Error("Supabase não configurado.");
+  if (!client) return _deleteCaseLocalStorage(caseId);
 
-  const { error } = await client
-    .from('cases')
-    .delete()
-    .eq('id', caseId);
+  try {
+    const { error } = await client
+      .from('cases')
+      .delete()
+      .eq('id', caseId);
 
-  if (error) throw error;
+    if (error) {
+      console.warn("Erro ao deletar caso no Supabase. Deletando localmente.", error);
+      return _deleteCaseLocalStorage(caseId);
+    }
+    return true;
+  } catch (err) {
+    console.warn("Falha ao deletar caso no Supabase. Deletando localmente.", err);
+    return _deleteCaseLocalStorage(caseId);
+  }
+}
+
+// Helpers de fallback para o LocalStorage - Casos
+function _getCasesLocalStorage() {
+  const list = JSON.parse(localStorage.getItem('advcontrol_cases') || '[]');
+  const clients = JSON.parse(localStorage.getItem('advcontrol_clients') || '[]');
+  const members = JSON.parse(localStorage.getItem('advcontrol_members') || '[]');
+
+  return list.map(item => {
+    const cl = clients.find(c => c.id === item.client_id);
+    const orig = members.find(m => m.id === item.originating_partner_id);
+    const resp = members.find(m => m.id === item.responsible_partner_id);
+    return {
+      ...item,
+      clients: cl ? { name: cl.name } : null,
+      originating: orig ? { full_name: orig.full_name } : null,
+      responsible: resp ? { full_name: resp.full_name } : null
+    };
+  });
+}
+
+function _createCaseLocalStorage(tenantId, caseData) {
+  const list = JSON.parse(localStorage.getItem('advcontrol_cases') || '[]');
+  const newItem = {
+    id: 'local_case_' + Math.random().toString(36).substr(2, 9),
+    tenant_id: tenantId,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    ...caseData
+  };
+  list.push(newItem);
+  localStorage.setItem('advcontrol_cases', JSON.stringify(list));
+  return newItem;
+}
+
+function _updateCaseLocalStorage(caseId, caseData) {
+  const list = JSON.parse(localStorage.getItem('advcontrol_cases') || '[]');
+  const idx = list.findIndex(c => c.id === caseId);
+  if (idx !== -1) {
+    list[idx] = { ...list[idx], ...caseData, updated_at: new Date().toISOString() };
+    localStorage.setItem('advcontrol_cases', JSON.stringify(list));
+    return list[idx];
+  }
+  return null;
+}
+
+function _deleteCaseLocalStorage(caseId) {
+  let list = JSON.parse(localStorage.getItem('advcontrol_cases') || '[]');
+  list = list.filter(c => c.id !== caseId);
+  localStorage.setItem('advcontrol_cases', JSON.stringify(list));
   return true;
 }
 
@@ -537,16 +689,24 @@ async function deleteUserProfile(profileId) {
  */
 async function getOrgTasks() {
   const client = getSupabaseClient();
-  if (!client) return [];
+  if (!client) return _getOrgTasksLocalStorage();
 
-  const { data, error } = await client
-    .from('org_tasks')
-    .select('*')
-    .order('done', { ascending: true })
-    .order('deadline', { ascending: true });
+  try {
+    const { data, error } = await client
+      .from('org_tasks')
+      .select('*')
+      .order('done', { ascending: true })
+      .order('deadline', { ascending: true });
 
-  if (error) throw error;
-  return data;
+    if (error) {
+      console.warn("Erro ao buscar tarefas do Supabase. Usando LocalStorage fallback.", error);
+      return _getOrgTasksLocalStorage();
+    }
+    return data || [];
+  } catch (err) {
+    console.warn("Falha ao buscar tarefas no Supabase. Usando LocalStorage fallback.", err);
+    return _getOrgTasksLocalStorage();
+  }
 }
 
 /**
@@ -554,15 +714,23 @@ async function getOrgTasks() {
  */
 async function createOrgTask(tenantId, taskData) {
   const client = getSupabaseClient();
-  if (!client) throw new Error("Supabase não configurado.");
+  if (!client) return _createOrgTaskLocalStorage(tenantId, taskData);
 
-  const { data, error } = await client
-    .from('org_tasks')
-    .insert([{ tenant_id: tenantId, ...taskData }])
-    .select();
+  try {
+    const { data, error } = await client
+      .from('org_tasks')
+      .insert([{ tenant_id: tenantId, ...taskData }])
+      .select();
 
-  if (error) throw error;
-  return data[0];
+    if (error) {
+      console.warn("Erro ao criar tarefa no Supabase. Gravando localmente.", error);
+      return _createOrgTaskLocalStorage(tenantId, taskData);
+    }
+    return data[0];
+  } catch (err) {
+    console.warn("Falha ao criar tarefa no Supabase. Gravando localmente.", err);
+    return _createOrgTaskLocalStorage(tenantId, taskData);
+  }
 }
 
 /**
@@ -570,21 +738,29 @@ async function createOrgTask(tenantId, taskData) {
  */
 async function toggleOrgTaskDone(taskId, isDone) {
   const client = getSupabaseClient();
-  if (!client) throw new Error("Supabase não configurado.");
+  if (!client) return _toggleOrgTaskDoneLocalStorage(taskId, isDone);
 
   const updateData = {
     done: isDone,
     done_at: isDone ? new Date().toISOString() : null
   };
 
-  const { data, error } = await client
-    .from('org_tasks')
-    .update(updateData)
-    .eq('id', taskId)
-    .select();
+  try {
+    const { data, error } = await client
+      .from('org_tasks')
+      .update(updateData)
+      .eq('id', taskId)
+      .select();
 
-  if (error) throw error;
-  return data[0];
+    if (error) {
+      console.warn("Erro ao atualizar status da tarefa no Supabase. Gravando localmente.", error);
+      return _toggleOrgTaskDoneLocalStorage(taskId, isDone);
+    }
+    return data[0];
+  } catch (err) {
+    console.warn("Falha ao atualizar status da tarefa no Supabase. Gravando localmente.", err);
+    return _toggleOrgTaskDoneLocalStorage(taskId, isDone);
+  }
 }
 
 /**
@@ -592,14 +768,61 @@ async function toggleOrgTaskDone(taskId, isDone) {
  */
 async function deleteOrgTask(taskId) {
   const client = getSupabaseClient();
-  if (!client) throw new Error("Supabase não configurado.");
+  if (!client) return _deleteOrgTaskLocalStorage(taskId);
 
-  const { error } = await client
-    .from('org_tasks')
-    .delete()
-    .eq('id', taskId);
+  try {
+    const { error } = await client
+      .from('org_tasks')
+      .delete()
+      .eq('id', taskId);
 
-  if (error) throw error;
+    if (error) {
+      console.warn("Erro ao deletar tarefa no Supabase. Deletando localmente.", error);
+      return _deleteOrgTaskLocalStorage(taskId);
+    }
+    return true;
+  } catch (err) {
+    console.warn("Falha ao deletar tarefa no Supabase. Deletando localmente.", err);
+    return _deleteOrgTaskLocalStorage(taskId);
+  }
+}
+
+// Helpers de fallback para o LocalStorage - Tarefas Internas
+function _getOrgTasksLocalStorage() {
+  return JSON.parse(localStorage.getItem('advcontrol_org_tasks') || '[]');
+}
+
+function _createOrgTaskLocalStorage(tenantId, taskData) {
+  const list = JSON.parse(localStorage.getItem('advcontrol_org_tasks') || '[]');
+  const newItem = {
+    id: 'local_task_' + Math.random().toString(36).substr(2, 9),
+    tenant_id: tenantId,
+    done: false,
+    done_at: null,
+    created_at: new Date().toISOString(),
+    ...taskData
+  };
+  list.push(newItem);
+  localStorage.setItem('advcontrol_org_tasks', JSON.stringify(list));
+  return newItem;
+}
+
+function _toggleOrgTaskDoneLocalStorage(taskId, isDone) {
+  const list = JSON.parse(localStorage.getItem('advcontrol_org_tasks') || '[]');
+  const idx = list.findIndex(t => t.id === taskId);
+  if (idx !== -1) {
+    list[idx].done = isDone;
+    list[idx].done_at = isDone ? new Date().toISOString() : null;
+    localStorage.setItem('advcontrol_org_tasks', JSON.stringify(list));
+    return list[idx];
+  }
+  return null;
+}
+
+function _deleteOrgTaskLocalStorage(taskId) {
+  let list = JSON.parse(localStorage.getItem('advcontrol_org_tasks') || '[]');
+  list = list.filter(t => t.id !== taskId);
+  localStorage.setItem('advcontrol_org_tasks', JSON.stringify(list));
   return true;
 }
 

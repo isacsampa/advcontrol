@@ -8,7 +8,7 @@
   <meta name="description" content="AdvControl — Sistema SaaS de gestão completa para escritórios de advocacia. Fluxo de caixa, clientes, processos e timesheets em um só lugar.">
 
   <!-- Estilos e Fontes -->
-  <link rel="stylesheet" href="styles.css?v=1.7.0">
+  <link rel="stylesheet" href="styles.css?v=1.8.0">
 
   <!-- Supabase JS Client v2 (local) -->
   <script src="libs/supabase.min.js"></script>
@@ -16,7 +16,7 @@
   <!-- Chart.js para Gráficos Dinâmicos (local) -->
   <script src="libs/chart.min.js"></script>
   <!-- Logo JR embutida (carrega automaticamente nos boletos) -->
-  <script src="logo-jr.js?v=1.7.0"></script>
+  <script src="logo-jr.js?v=1.8.0"></script>
   <!-- Fail-safe instantâneo para Convites de Equipe (Ignora cache de JS) -->
   <script>
     (function() {
@@ -632,10 +632,10 @@
         </div>
         <div style="display: flex; gap: 8px;">
           <button class="btn btn-secondary" onclick="copyInviteLink('associate')" style="font-weight: 700; height: 38px;">
-            🔗 Convidar Advogado
+            🔗 Convidar Advogado Parceiro
           </button>
           <button class="btn btn-secondary" onclick="copyInviteLink('financial')" style="font-weight: 700; height: 38px;">
-            🔗 Convidar Financeiro
+            🔗 Convidar Assessor Jurídico
           </button>
           <button class="btn btn-secondary" onclick="copyInviteLink('secretary')" style="font-weight: 700; height: 38px;">
             🔗 Convidar Secretária
@@ -712,25 +712,25 @@
             <div class="form-group row">
               <div>
                 <label for="bgBeneficiary" class="required">Beneficiário</label>
-                <input type="text" id="bgBeneficiary" class="form-control" placeholder="Ex: Rego Júnior Advogados" required>
+                <input type="text" id="bgBeneficiary" class="form-control" value="Rego Júnior Advogados" readonly required>
               </div>
               <div>
                 <label for="bgBank" class="required">Banco / Instituição</label>
-                <input type="text" id="bgBank" class="form-control" placeholder="Ex: Banco do Brasil" required>
+                <input type="text" id="bgBank" class="form-control" value="Banco Cora" readonly required>
               </div>
             </div>
 
             <div class="form-group">
               <label for="bgPixKey" class="required">Chave PIX (para QR Code)</label>
-              <input type="text" id="bgPixKey" class="form-control" placeholder="E-mail, CNPJ, Telefone ou Chave Aleatória" required>
+              <input type="text" id="bgPixKey" class="form-control" value="financeiro@regojunior.adv.br" readonly required>
             </div>
 
             <div class="form-group row">
-              <div>
+              <div style="grid-column: span 2;">
                 <label for="bgPhone">Telefone de Contato</label>
-                <input type="text" id="bgPhone" class="form-control" placeholder="(00) 00000-0000">
+                <input type="text" id="bgPhone" class="form-control" value="(11) 3254-8900" readonly>
               </div>
-              <div>
+              <div style="display: none;">
                 <label for="bgLogo">Logomarca (Imagem)</label>
                 <input type="file" id="bgLogo" class="form-control" accept="image/*" style="padding: 4px;">
               </div>
@@ -738,7 +738,7 @@
 
             <div class="form-group">
               <label for="bgAddress">Endereço Completo</label>
-              <input type="text" id="bgAddress" class="form-control" placeholder="Ex: Av. Paulista, 1000 - Cj. 50 - São Paulo/SP">
+              <input type="text" id="bgAddress" class="form-control" value="Av. Paulista, 1200 - Cj. 41 - Bela Vista - São Paulo/SP" readonly>
             </div>
 
             <div class="form-actions" style="margin-top: 16px;">
@@ -810,6 +810,10 @@
                 <div class="form-group">
                   <label for="orgTaskDeadline" class="required">Prazo de Confecção</label>
                   <input type="date" id="orgTaskDeadline" class="form-control" required>
+                </div>
+                <div class="form-group">
+                  <label for="orgTaskDescription">Descrição / Comentários</label>
+                  <textarea id="orgTaskDescription" class="form-control" placeholder="Observações adicionais sobre a tarefa..." rows="3" style="resize: vertical;"></textarea>
                 </div>
                 <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 12px;">➕ Adicionar Tarefa</button>
               </form>
@@ -1496,8 +1500,8 @@
 
   <!-- Scripts do App -->
   <script src="libs/qrcode.min.js"></script>
-  <script src="supabase-client.js?v=1.7.0"></script>
-  <script src="app.js?v=1.7.0"></script>
+  <script src="supabase-client.js?v=1.8.0"></script>
+  <script src="app.js?v=1.8.0"></script>
 </body>
 
 </html>

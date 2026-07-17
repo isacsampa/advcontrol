@@ -548,6 +548,44 @@ create policy appointments_delete on public.appointments
     and public.auth_user_role() in ('owner', 'secretary', 'partner')
   );
 
+-- ---------------------------------------------------------------------
+-- org_tasks (Tarefas Internas)
+-- ---------------------------------------------------------------------
+create table if not exists public.org_tasks (
+  id uuid primary key default uuid_generate_v4(),
+  tenant_id uuid not null references public.tenants(id) on delete cascade,
+  activity text not null,
+  assignee_name text not null,
+  deadline date not null,
+  done boolean not null default false,
+  done_at timestamptz,
+  description text, -- Observações/Comentários complementares
+  created_by uuid references public.user_profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.org_tasks enable row level security;
+
+create policy org_tasks_select on public.org_tasks
+  for select using (tenant_id = public.auth_tenant_id());
+
+create policy org_tasks_insert on public.org_tasks
+  for insert with check (
+    tenant_id = public.auth_tenant_id()
+    and public.auth_user_role() in ('owner', 'partner')
+  );
+
+create policy org_tasks_update on public.org_tasks
+  for update using (tenant_id = public.auth_tenant_id())
+  with check (tenant_id = public.auth_tenant_id());
+
+create policy org_tasks_delete on public.org_tasks
+  for delete using (
+    tenant_id = public.auth_tenant_id()
+    and public.auth_user_role() in ('owner', 'partner')
+  );
+
 -- =====================================================================================
 -- FIM DO SCHEMA
 -- =====================================================================================

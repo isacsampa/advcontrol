@@ -1090,15 +1090,32 @@ async function handleClientFormSubmit(e) {
   showLoader(true);
   try {
     if (id) {
-      await updateClient(id, payload);
+      const updated = await updateClient(id, payload);
+      if (updated) {
+        const idx = AppState.clients.findIndex(c => c.id === id);
+        if (idx !== -1) {
+          AppState.clients[idx] = { ...AppState.clients[idx], ...updated };
+        }
+      }
       showToast("Cliente atualizado com sucesso!", "success");
     } else {
-      await createClient(AppState.userProfile.tenant_id, payload);
+      const created = await createClient(AppState.userProfile.tenant_id, payload);
+      if (created) {
+        AppState.clients.push(created);
+      }
       showToast("Cliente criado com sucesso!", "success");
     }
-    await refreshAllData();
+    
+    // Atualiza tabela imediatamente
     renderClientsTable();
+    // Fecha o modal imediatamente
     closeModal('clientModalOverlay');
+
+    // Sincroniza em background
+    refreshAllData().then(() => {
+      renderClientsTable();
+    }).catch(console.error);
+
   } catch (err) {
     showToast("Erro ao salvar cliente: " + err.message, "error");
   } finally {
@@ -1183,15 +1200,41 @@ async function handleCaseFormSubmit(e) {
   showLoader(true);
   try {
     if (id) {
-      await updateCase(id, payload);
+      const updated = await updateCase(id, payload);
+      if (updated) {
+        const idx = AppState.cases.findIndex(c => c.id === id);
+        if (idx !== -1) {
+          AppState.cases[idx] = { ...AppState.cases[idx], ...updated };
+        }
+      }
       showToast("Processo atualizado com sucesso!", "success");
     } else {
-      await createCase(AppState.userProfile.tenant_id, payload);
+      const created = await createCase(AppState.userProfile.tenant_id, payload);
+      if (created) {
+        const cl = AppState.clients.find(c => c.id === created.client_id);
+        created.clients = cl ? { name: cl.name } : null;
+        
+        const orig = AppState.members.find(m => m.id === created.originating_partner_id);
+        created.originating = orig ? { full_name: orig.full_name } : null;
+
+        const resp = AppState.members.find(m => m.id === created.responsible_partner_id);
+        created.responsible = resp ? { full_name: resp.full_name } : null;
+
+        AppState.cases.push(created);
+      }
       showToast("Processo criado com sucesso!", "success");
     }
-    await refreshAllData();
+    
+    // Atualiza tabela imediatamente
     renderCasesTable();
+    // Fecha o modal imediatamente
     closeModal('caseModalOverlay');
+
+    // Sincroniza em background
+    refreshAllData().then(() => {
+      renderCasesTable();
+    }).catch(console.error);
+
   } catch (err) {
     showToast("Erro ao salvar processo: " + err.message, "error");
   } finally {
@@ -2034,7 +2077,7 @@ let billingLogoBase64 = (typeof JR_LOGO_BASE64 !== 'undefined') ? JR_LOGO_BASE64
  * Inicializa a aba do Emissor de Carnês
  */
 function initBillingGeneratorTab() {
-  // Preenche dados padrão se estiverem vazios
+  // Preenche dados padrão incondicionalmente
   const addressInput = document.getElementById('bgAddress');
   const phoneInput = document.getElementById('bgPhone');
   const beneficiaryInput = document.getElementById('bgBeneficiary');
@@ -2042,11 +2085,16 @@ function initBillingGeneratorTab() {
   const pixKeyInput = document.getElementById('bgPixKey');
   const firstDueDateInput = document.getElementById('bgFirstDueDate');
 
-  if (!beneficiaryInput.value) beneficiaryInput.value = "Rego Júnior Advogados";
-  if (!bankInput.value) bankInput.value = "Banco Cora";
-  if (!pixKeyInput.value) pixKeyInput.value = "financeiro@regojunior.adv.br";
-  if (!phoneInput.value) phoneInput.value = "(11) 3254-8900";
-  if (!addressInput.value) addressInput.value = "Av. Paulista, 1200 - Cj. 41 - Bela Vista - São Paulo/SP";
+  beneficiaryInput.value = "Rego Júnior Advogados";
+  bankInput.value = "Banco Cora";
+  pixKeyInput.value = "financeiro@regojunior.adv.br";
+  phoneInput.value = "(11) 3254-8900";
+  addressInput.value = "Av. Paulista, 1200 - Cj. 41 - Bela Vista - São Paulo/SP";
+
+  // Inicializa logo corporativa se estiver vazia
+  if (!billingLogoBase64) {
+    billingLogoBase64 = (typeof JR_LOGO_BASE64 !== 'undefined') ? JR_LOGO_BASE64 : '';
+  }
 
   // Define data padrão de vencimento para 30 dias a partir de hoje
   if (!firstDueDateInput.value) {
@@ -2497,6 +2545,7 @@ async function addOrgTask() {
   const activity = document.getElementById('orgTaskActivity').value.trim();
   const assignee = document.getElementById('orgTaskAssignee').value;
   const deadline = document.getElementById('orgTaskDeadline').value;
+  const description = document.getElementById('orgTaskDescription').value.trim();
 
   if (!activity || !assignee || !deadline) {
     showToast("Preencha todos os campos antes de adicionar.", "warning");
@@ -2512,6 +2561,7 @@ async function addOrgTask() {
       activity,
       assignee_name: assignee,
       deadline,
+      description: description || null,
       created_by: AppState.userProfile.id
     });
     AppState.orgTasks.push(newTask);
@@ -2651,7 +2701,10 @@ function renderOrgTasksTable() {
         <td style="text-align: center;">
           ${statusDropdown}
         </td>
-        <td><strong>${task.activity}</strong></td>
+        <td>
+          <strong>${task.activity}</strong>
+          ${task.description ? `<div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; font-weight: normal; font-style: italic;">💬 ${task.description}</div>` : ''}
+        </td>
         <td><span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-primary); border: 1px solid var(--border-color);">${assigneeName}</span></td>
         <td ${deadlineStyle}>${formattedDeadline} ${isOverdue ? '⚠️ Atrasado' : ''}</td>
         ${actionCell}
@@ -3427,8 +3480,8 @@ window.copyInviteLink = function(role) {
   navigator.clipboard.writeText(inviteUrl);
   
   const roleNames = {
-    associate: 'Advogado Associado',
-    financial: 'Financeiro',
+    associate: 'Advogado Parceiro',
+    financial: 'Assessor Jurídico',
     secretary: 'Secretária'
   };
   const roleName = roleNames[role] || 'Membro';
@@ -3715,6 +3768,21 @@ function renderAppointmentsList() {
     `;
   });
 }
+
+// Exposição explícita de funções ao escopo global (window) para compatibilidade com eventos inline
+window.openClientForm = openClientForm;
+window.handleDeleteClient = handleDeleteClient;
+window.openClientDocChecklistModal = openClientDocChecklistModal;
+window.openSplitRulesModal = openSplitRulesModal;
+window.openCaseAIModal = openCaseAIModal;
+window.openLegalDraftModal = openLegalDraftModal;
+window.openCaseForm = openCaseForm;
+window.handleDeleteCase = handleDeleteCase;
+window.handleDeleteOrgTask = handleDeleteOrgTask;
+window.updateOrgTaskStatusSelect = updateOrgTaskStatusSelect;
+window.handleDeleteAppointment = handleDeleteAppointment;
+window.openMemberForm = openMemberForm;
+window.switchTab = switchTab;
 
 
 
