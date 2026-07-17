@@ -602,3 +602,134 @@ async function deleteOrgTask(taskId) {
   if (error) throw error;
   return true;
 }
+
+// =========================================================================
+// 9. AGENDA & COMPROMISSOS (appointments)
+// =========================================================================
+
+/**
+ * Busca todos os compromissos da agenda do tenant
+ */
+async function getAppointments() {
+  const client = getSupabaseClient();
+  if (!client) return _getAppointmentsLocalStorage();
+
+  try {
+    const { data, error } = await client
+      .from('appointments')
+      .select(`
+        *,
+        clients(name),
+        cases(title),
+        user_profiles(full_name)
+      `)
+      .order('start_at', { ascending: true });
+
+    if (error) {
+      // Se a tabela não existir ainda no Supabase, usa o localStorage como fallback automático
+      if (error.code === 'PGRST116' || error.message.includes('relation "appointments" does not exist')) {
+        console.warn("Tabela 'appointments' não encontrada. Usando localStorage como fallback.");
+        return _getAppointmentsLocalStorage();
+      }
+      throw error;
+    }
+    return data || [];
+  } catch (err) {
+    console.warn("Erro ao ler appointments do Supabase, usando localStorage fallback:", err);
+    return _getAppointmentsLocalStorage();
+  }
+}
+
+/**
+ * Cria um novo compromisso
+ */
+async function createAppointment(tenantId, appointmentData) {
+  const client = getSupabaseClient();
+  if (!client) return _createAppointmentLocalStorage(tenantId, appointmentData);
+
+  try {
+    const { data, error } = await client
+      .from('appointments')
+      .insert([{ tenant_id: tenantId, ...appointmentData }])
+      .select();
+
+    if (error) {
+      if (error.message.includes('relation "appointments" does not exist')) {
+        return _createAppointmentLocalStorage(tenantId, appointmentData);
+      }
+      throw error;
+    }
+    return data[0];
+  } catch (err) {
+    console.warn("Erro ao salvar appointment no Supabase, usando localStorage:", err);
+    return _createAppointmentLocalStorage(tenantId, appointmentData);
+  }
+}
+
+/**
+ * Deleta um compromisso
+ */
+async function deleteAppointment(appointmentId) {
+  const client = getSupabaseClient();
+  if (!client) return _deleteAppointmentLocalStorage(appointmentId);
+
+  try {
+    const { error } = await client
+      .from('appointments')
+      .delete()
+      .eq('id', appointmentId);
+
+    if (error) {
+      if (error.message.includes('relation "appointments" does not exist')) {
+        return _deleteAppointmentLocalStorage(appointmentId);
+      }
+      throw error;
+    }
+    return true;
+  } catch (err) {
+    console.warn("Erro ao deletar appointment no Supabase, usando localStorage:", err);
+    return _deleteAppointmentLocalStorage(appointmentId);
+  }
+}
+
+// --- HELPER LOCALSTORAGE FALLBACKS ---
+
+function _getAppointmentsLocalStorage() {
+  const list = JSON.parse(localStorage.getItem('advcontrol_appointments') || '[]');
+  // Mapeia os joins locais para simular resposta do banco
+  const clients = JSON.parse(localStorage.getItem('advcontrol_clients') || '[]');
+  const cases = JSON.parse(localStorage.getItem('advcontrol_cases') || '[]');
+  const members = JSON.parse(localStorage.getItem('advcontrol_members') || '[]');
+
+  return list.map(item => {
+    const cl = clients.find(c => c.id === item.client_id);
+    const cs = cases.find(c => c.id === item.case_id);
+    const mb = members.find(m => m.id === item.assignee_id);
+    return {
+      ...item,
+      clients: cl ? { name: cl.name } : null,
+      cases: cs ? { title: cs.title } : null,
+      user_profiles: mb ? { full_name: mb.full_name } : (item.assignee_name ? { full_name: item.assignee_name } : null)
+    };
+  });
+}
+
+function _createAppointmentLocalStorage(tenantId, data) {
+  const list = JSON.parse(localStorage.getItem('advcontrol_appointments') || '[]');
+  const newItem = {
+    id: 'local_' + Math.random().toString(36).substr(2, 9),
+    tenant_id: tenantId,
+    created_at: new Date().toISOString(),
+    ...data
+  };
+  list.push(newItem);
+  localStorage.setItem('advcontrol_appointments', JSON.stringify(list));
+  return newItem;
+}
+
+function _deleteAppointmentLocalStorage(id) {
+  let list = JSON.parse(localStorage.getItem('advcontrol_appointments') || '[]');
+  list = list.filter(item => item.id !== id);
+  localStorage.setItem('advcontrol_appointments', JSON.stringify(list));
+  return true;
+}

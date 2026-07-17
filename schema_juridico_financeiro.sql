@@ -71,7 +71,7 @@ $$;
 -- 2. ENUMS
 -- -------------------------------------------------------------------------------------
 
-create type public.user_role as enum ('owner', 'partner', 'associate', 'financial');
+create type public.user_role as enum ('owner', 'partner', 'associate', 'financial', 'secretary');
 
 create type public.case_status as enum ('ativo', 'suspenso', 'encerrado', 'arquivado');
 
@@ -504,6 +504,48 @@ create policy split_rules_delete on public.split_rules
   for delete using (
     tenant_id = public.auth_tenant_id()
     and public.auth_user_role() in ('owner', 'partner')
+  );
+
+-- -------------------------------------------------------------------------------------
+-- 9. AGENDA & COMPROMISSOS (appointments)
+-- -------------------------------------------------------------------------------------
+create table if not exists public.appointments (
+  id uuid default gen_random_uuid() primary key,
+  tenant_id uuid references public.tenants(id) on delete cascade not null,
+  title text not null,
+  description text,
+  start_at timestamp with time zone not null,
+  client_id uuid references public.clients(id) on delete set null,
+  case_id uuid references public.cases(id) on delete set null,
+  assignee_id uuid references public.user_profiles(id) on delete set null,
+  assignee_name text, -- Nome para compatibilidade ou fallback
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  created_by uuid references auth.users(id) on delete set null
+);
+
+-- RLS: Agenda
+alter table public.appointments enable row level security;
+
+create policy appointments_select on public.appointments
+  for select using (tenant_id = public.auth_tenant_id());
+
+create policy appointments_insert on public.appointments
+  for insert with check (
+    tenant_id = public.auth_tenant_id()
+    and public.auth_user_role() in ('owner', 'secretary', 'partner')
+  );
+
+create policy appointments_update on public.appointments
+  for update using (
+    tenant_id = public.auth_tenant_id()
+    and public.auth_user_role() in ('owner', 'secretary', 'partner')
+  )
+  with check (tenant_id = public.auth_tenant_id());
+
+create policy appointments_delete on public.appointments
+  for delete using (
+    tenant_id = public.auth_tenant_id()
+    and public.auth_user_role() in ('owner', 'secretary', 'partner')
   );
 
 -- =====================================================================================

@@ -11,7 +11,7 @@
   <!-- Supabase JS Client (local) -->
   <script src="libs/supabase.min.js"></script>
   <!-- Cliente Supabase de conexão -->
-  <script src="supabase-client.js?v=1.3.0"></script>
+  <script src="supabase-client.js?v=1.4.0"></script>
 </head>
 <body style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background-color: var(--bg-primary);">
 
@@ -97,7 +97,11 @@
       }
 
       // Atualiza texto explicativo com o papel
-      const roleLabel = role === "financial" ? "Equipe Financeira" : "Advogado Associado";
+      let roleLabel = "Membro da Equipe";
+      if (role === "financial") roleLabel = "Financeiro";
+      else if (role === "associate") roleLabel = "Advogado Associado";
+      else if (role === "secretary") roleLabel = "Secretária";
+      
       document.getElementById("inviteRoleText").innerHTML = `Você foi convidado para o escritório. Crie sua conta para entrar como <strong>${roleLabel}</strong>.`;
 
       // Envio do formulário

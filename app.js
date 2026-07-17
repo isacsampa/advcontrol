@@ -77,10 +77,11 @@ function applyNavPermissions() {
 
 
   const roleLabels = {
-    owner:     '👑 Owner',
-    partner:   '🤝 Partner',
-    associate: '👤 Associate',
-    financial: '💼 Financial',
+    owner:     '👑 Owner (Dono)',
+    partner:   '🤝 Sócio (Partner)',
+    associate: '👤 Associado',
+    financial: '💼 Financeiro',
+    secretary: '📞 Secretária',
   };
   const roleEl = document.getElementById('sidebarUserRole');
   if (roleEl) roleEl.textContent = roleLabels[role] || role;
@@ -349,6 +350,11 @@ function switchTab(tabId) {
       subtitleEl.textContent = "Guia de onboarding para configuração inicial do seu escritório.";
       renderOnboardingChecklist();
       break;
+    case 'agenda':
+      titleEl.textContent = "Agenda & Compromissos";
+      subtitleEl.textContent = "Organize as reuniões, audiências e compromissos importantes do escritório.";
+      initAgendaTab();
+      break;
 
     case 'transactions':
       titleEl.textContent = "Lançamentos Financeiros";
@@ -412,13 +418,14 @@ async function refreshAllData() {
   if (!isSupabaseConfigured() || !AppState.session) return;
   
   try {
-    const [clients, cases, transactions, timesheets, members, orgTasks] = await Promise.all([
+    const [clients, cases, transactions, timesheets, members, orgTasks, appointments] = await Promise.all([
       getClients(),
       getCases(),
       getTransactions(),
       getTimesheets(),
       getUserProfiles(),
-      getOrgTasks()
+      getOrgTasks(),
+      getAppointments()
     ]);
     
     AppState.clients = clients || [];
@@ -427,6 +434,7 @@ async function refreshAllData() {
     AppState.timesheets = timesheets || [];
     AppState.members = members || [];
     AppState.orgTasks = orgTasks || [];
+    AppState.appointments = appointments || [];
     
     // Atualiza a lista interativa de onboarding se estiver configurada
     if (typeof renderOnboardingChecklist === 'function') {
@@ -3408,9 +3416,295 @@ window.copyInviteLink = function(role) {
   const inviteUrl = `${window.location.origin}/convite.html?tenant_id=${AppState.userProfile.tenant_id}&role=${role}`;
   navigator.clipboard.writeText(inviteUrl);
   
-  const roleName = role === 'financial' ? 'Financeiro' : 'Advogado Associado';
+  const roleNames = {
+    associate: 'Advogado Associado',
+    financial: 'Financeiro',
+    secretary: 'Secretária'
+  };
+  const roleName = roleNames[role] || 'Membro';
   showToast(`Link de convite para ${roleName} copiado para a área de transferência!`, "success");
 };
+
+// =========================================================================
+// 10. MÓDULO DE AGENDA & COMPROMISSOS (AgendaTab)
+// =========================================================================
+
+/**
+ * Inicializa a aba de Agenda
+ */
+async function initAgendaTab() {
+  const role = AppState.userProfile?.role;
+  const isOwnerOrSecretary = (role === 'owner' || role === 'secretary');
+
+  // Controle de exibição do formulário de criação (somente Dono e Secretária cadastram)
+  const formCard = document.getElementById('agendaFormCard');
+  const layoutGrid = document.getElementById('agendaLayoutGrid');
+
+  if (formCard && layoutGrid) {
+    if (isOwnerOrSecretary) {
+      formCard.style.display = '';
+      layoutGrid.style.gridTemplateColumns = '1fr 2fr';
+    } else {
+      formCard.style.display = 'none';
+      layoutGrid.style.gridTemplateColumns = '1fr';
+    }
+  }
+
+  // Popula o select de Responsável
+  const assigneeSelect = document.getElementById('agendaAssignee');
+  assigneeSelect.innerHTML = '<option value="">Selecione um advogado...</option>';
+  
+  if (AppState.members && AppState.members.length > 0) {
+    AppState.members.forEach(member => {
+      assigneeSelect.innerHTML += `<option value="${member.full_name}">${member.full_name}</option>`;
+    });
+  } else if (AppState.userProfile) {
+    assigneeSelect.innerHTML += `<option value="${AppState.userProfile.full_name}">${AppState.userProfile.full_name}</option>`;
+  }
+
+  // Popula o select de Clientes
+  const clientSelect = document.getElementById('agendaClient');
+  clientSelect.innerHTML = '<option value="">Selecione um cliente (opcional)...</option>';
+  AppState.clients.forEach(c => {
+    clientSelect.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+  });
+
+  // Popula o select de Processos
+  const caseSelect = document.getElementById('agendaCase');
+  caseSelect.innerHTML = '<option value="">Selecione um caso (opcional)...</option>';
+  AppState.cases.forEach(c => {
+    caseSelect.innerHTML += `<option value="${c.id}">${c.title} (${c.case_number || 'Sem número'})</option>`;
+  });
+
+  // Preenche a data/hora de início com a hora atual + 1 hora
+  const startAtInput = document.getElementById('agendaStartAt');
+  if (!startAtInput.value) {
+    const now = new Date();
+    now.setHours(now.getHours() + 1);
+    now.setMinutes(0);
+    // Ajusta formato YYYY-MM-DDTHH:MM
+    const offset = now.getTimezoneOffset();
+    const localNow = new Date(now.getTime() - (offset * 60 * 1000));
+    startAtInput.value = localNow.toISOString().slice(0, 16);
+  }
+
+  // Carrega e renderiza os dados
+  showLoader(true);
+  try {
+    AppState.appointments = await getAppointments();
+  } catch (err) {
+    showToast("Erro ao carregar agenda: " + err.message, "error");
+  } finally {
+    showLoader(false);
+  }
+
+  renderAppointmentsList();
+}
+
+/**
+ * Cadastra um novo compromisso na Agenda
+ */
+async function addAppointment() {
+  const title = document.getElementById('agendaTitle').value.trim();
+  const startAt = document.getElementById('agendaStartAt').value;
+  const assigneeName = document.getElementById('agendaAssignee').value;
+  const clientId = document.getElementById('agendaClient').value || null;
+  const caseId = document.getElementById('agendaCase').value || null;
+  const description = document.getElementById('agendaDescription').value.trim() || '';
+
+  if (!title || !startAt || !assigneeName) {
+    showToast("Preencha todos os campos obrigatórios.", "warning");
+    return;
+  }
+
+  const tenantId = AppState.userProfile?.tenant_id;
+  if (!tenantId) return;
+
+  // Busca ID do responsável se estiver na lista de members
+  const member = AppState.members.find(m => m.full_name === assigneeName);
+  const assigneeId = member ? member.id : null;
+
+  showLoader(true);
+  try {
+    const newAppointment = await createAppointment(tenantId, {
+      title,
+      start_at: new Date(startAt).toISOString(),
+      assignee_id: assigneeId,
+      assignee_name: assigneeName,
+      client_id: clientId,
+      case_id: caseId,
+      description,
+      created_by: AppState.userProfile.id
+    });
+
+    if (newAppointment) {
+      AppState.appointments.push(newAppointment);
+      showToast("Compromisso agendado com sucesso!", "success");
+      document.getElementById('agendaForm').reset();
+      
+      // Carrega atualizado do banco
+      AppState.appointments = await getAppointments();
+      renderAppointmentsList();
+    }
+  } catch (err) {
+    showToast("Erro ao salvar compromisso: " + err.message, "error");
+  } finally {
+    showLoader(false);
+  }
+}
+
+/**
+ * Deleta um compromisso da agenda
+ */
+async function handleDeleteAppointment(appointmentId) {
+  if (!confirm("Deseja realmente excluir este compromisso?")) return;
+
+  showLoader(true);
+  try {
+    await deleteAppointment(appointmentId);
+    AppState.appointments = AppState.appointments.filter(a => a.id !== appointmentId);
+    showToast("Compromisso cancelado/removido.", "info");
+    renderAppointmentsList();
+  } catch (err) {
+    showToast("Erro ao remover compromisso: " + err.message, "error");
+  } finally {
+    showLoader(false);
+  }
+}
+
+/**
+ * Renderiza a lista de compromissos no container com filtros
+ */
+function renderAppointmentsList() {
+  const container = document.getElementById('appointmentsListContainer');
+  if (!container) return;
+
+  const search = document.getElementById('searchAgenda').value.toLowerCase();
+  const filterDate = document.getElementById('filterAgendaDate').value;
+
+  const role = AppState.userProfile?.role;
+  const userFullName = AppState.userProfile?.full_name;
+  const isOwnerOrSecretary = (role === 'owner' || role === 'secretary');
+
+  let list = AppState.appointments || [];
+
+  // 1. Filtragem para associados: eles só veem compromissos deles mesmos
+  if (role === 'associate') {
+    list = list.filter(a => a.assignee_name === userFullName);
+  }
+
+  // 2. Filtro de Busca por Título ou Responsável
+  if (search) {
+    list = list.filter(a => 
+      a.title.toLowerCase().includes(search) || 
+      (a.assignee_name && a.assignee_name.toLowerCase().includes(search))
+    );
+  }
+
+  // 3. Filtro por data (Hoje, Esta Semana, Todos)
+  const today = new Date();
+  const todayStr = today.toLocaleDateString('en-CA'); // YYYY-MM-DD
+
+  if (filterDate === 'today') {
+    list = list.filter(a => {
+      const aDate = new Date(a.start_at).toLocaleDateString('en-CA');
+      return aDate === todayStr;
+    });
+  } else if (filterDate === 'week') {
+    // Próximos 7 dias
+    const nextWeek = new Date();
+    nextWeek.setDate(today.getDate() + 7);
+    list = list.filter(a => {
+      const aTime = new Date(a.start_at).getTime();
+      return aTime >= today.setHours(0,0,0,0) && aTime <= nextWeek.setHours(23,59,59,999);
+    });
+  }
+
+  container.innerHTML = '';
+
+  if (list.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; color: var(--text-muted); padding: 40px;">
+        📅 Nenhum compromisso agendado para o período selecionado.
+      </div>
+    `;
+    return;
+  }
+
+  // Ordena cronologicamente por hora de início
+  const sorted = [...list].sort((a, b) => new Date(a.start_at) - new Date(b.start_at));
+
+  sorted.forEach(ap => {
+    const startDate = new Date(ap.start_at);
+    const dateStr = startDate.toLocaleDateString('pt-BR');
+    const timeStr = startDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    
+    const isToday = startDate.toLocaleDateString('en-CA') === todayStr;
+    const isPast = startDate < new Date() && !isToday;
+
+    let timeBadgeColor = 'var(--text-muted)';
+    let timeBadgeBg = 'rgba(0,0,0,0.04)';
+    let statusText = 'Agendado';
+
+    if (isToday) {
+      timeBadgeColor = 'var(--primary)';
+      timeBadgeBg = 'var(--primary-light)';
+      statusText = 'Hoje ⏳';
+    } else if (isPast) {
+      timeBadgeColor = 'var(--danger)';
+      timeBadgeBg = '#ffebee';
+      statusText = 'Realizado / Passado';
+    }
+
+    const clientName = ap.clients?.name || 'Sem cliente vinculado';
+    const caseTitle = ap.cases?.title || 'Sem processo vinculado';
+    const assignee = ap.user_profiles?.full_name || ap.assignee_name || 'Não atribuído';
+
+    const deleteBtn = isOwnerOrSecretary
+      ? `<button onclick="handleDeleteAppointment('${ap.id}')" style="background: none; border: none; color: var(--danger); cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; opacity: 0.7; transition: var(--transition);" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7" title="Desmarcar / Remover">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <line points="18 6 6 18"></line>
+            <line points="6 6 18 18"></line>
+          </svg>
+        </button>`
+      : '';
+
+    container.innerHTML += `
+      <div class="onboarding-step-card" style="display: flex; justify-content: space-between; align-items: flex-start; padding: 16px; border: 1.5px solid var(--border-color); border-radius: var(--radius); background: #fff; box-shadow: var(--shadow-sm); transition: var(--transition);">
+        <div style="display: flex; gap: 14px; align-items: flex-start;">
+          
+          <!-- Badge de Data/Hora -->
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 70px; padding: 8px; border-radius: 6px; background: ${timeBadgeBg}; color: ${timeBadgeColor}; text-align: center;">
+            <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">${dateStr.slice(0, 5)}</span>
+            <span style="font-size: 1.1rem; font-weight: 800; margin-top: 2px;">${timeStr}</span>
+          </div>
+
+          <!-- Informações do Agendamento -->
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <h4 style="margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-dark);">${ap.title}</h4>
+              <span class="badge" style="font-size: 0.65rem; background: ${timeBadgeBg}; color: ${timeBadgeColor}; font-weight: 700; border: none; padding: 2px 6px;">${statusText}</span>
+            </div>
+            
+            <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">
+              ${ap.description || 'Sem observações adicionais.'}
+            </p>
+
+            <div style="display: flex; gap: 14px; align-items: center; margin-top: 6px; flex-wrap: wrap; font-size: 0.75rem; color: var(--text-muted);">
+              <span>👤 <strong>Advogado:</strong> ${assignee}</span>
+              <span>🏢 <strong>Cliente:</strong> ${clientName}</span>
+              <span>⚖️ <strong>Caso:</strong> ${caseTitle}</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Ação de Deletar (apenas dono/secretaria) -->
+        ${deleteBtn}
+      </div>
+    `;
+  });
+}
 
 
 
