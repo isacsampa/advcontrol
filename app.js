@@ -1873,9 +1873,18 @@ async function handleDeleteMember(profileId) {
 // =========================================================================
 // ASSINATURAS DE LISTENERS DE FORMULÁRIO (Event Listeners)
 // =========================================================================
+function _addEvent(id, eventName, handler) {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener(eventName, handler);
+  } else {
+    console.warn(`Aviso: Elemento com ID "${id}" não encontrado na página para evento "${eventName}".`);
+  }
+}
+
 function initFormEventListeners() {
   // Login
-  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  _addEvent('loginForm', 'submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
@@ -1896,13 +1905,12 @@ function initFormEventListeners() {
   });
 
   // Cadastro de Novo Usuário (Tenant Creator ou Convidado)
-  document.getElementById('registerForm').addEventListener('submit', async (e) => {
+  _addEvent('registerForm', 'submit', async (e) => {
     e.preventDefault();
     const name     = document.getElementById('registerName').value.trim();
     const email    = document.getElementById('registerEmail').value.trim();
     const password = document.getElementById('registerPassword').value;
 
-    // Usa variáveis globais do convite (definidas no DOMContentLoaded)
     const tenantId = _inviteTenantId || null;
     const role     = tenantId ? (_inviteRole || 'associate') : null;
 
@@ -1910,24 +1918,22 @@ function initFormEventListeners() {
     try {
       const result = await signUpUser(email, password, name, tenantId, role);
 
-      // Limpa a URL do convite
       if (tenantId) {
         window.history.replaceState({}, document.title, window.location.pathname);
         _inviteTenantId = null;
         _inviteRole = 'associate';
       }
 
-      // Tenta auto-login se o Supabase retornou sessão (confirmação de email desativada)
       if (result && result.session) {
         showToast('Cadastro realizado! Entrando automaticamente...', 'success');
         localStorage.setItem('advcontrol_session_cache', JSON.stringify(result.session));
         await handleUserAuthenticated(result.session);
       } else {
-        // Confirmação de email ativa — pede para o usuário verificar email
-        showToast('Cadastro realizado! Verifique seu e-mail para confirmar a conta e depois faça login.', 'success');
-        document.getElementById('registerFormSection').style.display = 'none';
-        document.getElementById('loginFormSection').style.display = 'block';
-        // Pré-preenche o email no login para facilitar
+        showToast('Cadastro realizado! Verifique seu e-mail para confirmar a conta.', 'success');
+        const rSection = document.getElementById('registerFormSection');
+        const lSection = document.getElementById('loginFormSection');
+        if (rSection) rSection.style.display = 'none';
+        if (lSection) lSection.style.display = 'block';
         const loginEmailEl = document.getElementById('loginEmail');
         if (loginEmailEl) loginEmailEl.value = email;
       }
@@ -1938,159 +1944,175 @@ function initFormEventListeners() {
     }
   });
 
-
-
   // CRUD Forms Submits
-  document.getElementById('clientForm').addEventListener('submit', handleClientFormSubmit);
-  document.getElementById('caseForm').addEventListener('submit', handleCaseFormSubmit);
-  document.getElementById('transForm').addEventListener('submit', handleTransFormSubmit);
-  document.getElementById('timesheetForm').addEventListener('submit', handleTimesheetFormSubmit);
-  document.getElementById('memberForm').addEventListener('submit', handleMemberFormSubmit);
+  _addEvent('clientForm', 'submit', handleClientFormSubmit);
+  _addEvent('caseForm', 'submit', handleCaseFormSubmit);
+  _addEvent('transForm', 'submit', handleTransFormSubmit);
+  _addEvent('timesheetForm', 'submit', handleTimesheetFormSubmit);
+  _addEvent('memberForm', 'submit', handleMemberFormSubmit);
 
   // Botões de cancelamento / fechar modais
-  document.getElementById('btnCancelClientModal').addEventListener('click', () => closeModal('clientModalOverlay'));
-  document.getElementById('btnCloseClientModal').addEventListener('click', () => closeModal('clientModalOverlay'));
+  _addEvent('btnCancelClientModal', 'click', () => closeModal('clientModalOverlay'));
+  _addEvent('btnCloseClientModal', 'click', () => closeModal('clientModalOverlay'));
 
-  document.getElementById('btnCancelCaseModal').addEventListener('click', () => closeModal('caseModalOverlay'));
-  document.getElementById('btnCloseCaseModal').addEventListener('click', () => closeModal('caseModalOverlay'));
+  _addEvent('btnCancelCaseModal', 'click', () => closeModal('caseModalOverlay'));
+  _addEvent('btnCloseCaseModal', 'click', () => closeModal('caseModalOverlay'));
 
-  document.getElementById('btnCancelTransModal').addEventListener('click', () => closeModal('transModalOverlay'));
-  document.getElementById('btnCloseTransModal').addEventListener('click', () => closeModal('transModalOverlay'));
+  _addEvent('btnCancelTransModal', 'click', () => closeModal('transModalOverlay'));
+  _addEvent('btnCloseTransModal', 'click', () => closeModal('transModalOverlay'));
 
-  document.getElementById('btnCancelTimesheetModal').addEventListener('click', () => closeModal('timesheetModalOverlay'));
-  document.getElementById('btnCloseTimesheetModal').addEventListener('click', () => closeModal('timesheetModalOverlay'));
+  _addEvent('btnCancelTimesheetModal', 'click', () => closeModal('timesheetModalOverlay'));
+  _addEvent('btnCloseTimesheetModal', 'click', () => closeModal('timesheetModalOverlay'));
 
-  document.getElementById('btnCancelSplitModal').addEventListener('click', () => closeModal('splitModalOverlay'));
-  document.getElementById('btnCloseSplitModal').addEventListener('click', () => closeModal('splitModalOverlay'));
-  document.getElementById('btnSaveSplitRules').addEventListener('click', handleSaveSplitRulesSubmit);
-  document.getElementById('btnAddSplitRuleRow').addEventListener('click', () => addSplitRuleRow());
+  _addEvent('btnCancelSplitModal', 'click', () => closeModal('splitModalOverlay'));
+  _addEvent('btnCloseSplitModal', 'click', () => closeModal('splitModalOverlay'));
+  _addEvent('btnSaveSplitRules', 'click', handleSaveSplitRulesSubmit);
+  _addEvent('btnAddSplitRuleRow', 'click', () => addSplitRuleRow());
 
-  document.getElementById('btnCancelMemberModal').addEventListener('click', () => closeModal('memberModalOverlay'));
-  document.getElementById('btnCloseMemberModal').addEventListener('click', () => closeModal('memberModalOverlay'));
+  _addEvent('btnCancelMemberModal', 'click', () => closeModal('memberModalOverlay'));
+  _addEvent('btnCloseMemberModal', 'click', () => closeModal('memberModalOverlay'));
 
-  document.getElementById('btnCancelClientDocModal').addEventListener('click', () => closeModal('clientDocModalOverlay'));
-  document.getElementById('btnCloseClientDocModal').addEventListener('click', () => closeModal('clientDocModalOverlay'));
+  _addEvent('btnCancelClientDocModal', 'click', () => closeModal('clientDocModalOverlay'));
+  _addEvent('btnCloseClientDocModal', 'click', () => closeModal('clientDocModalOverlay'));
 
   // Gatilhos de Abertura de Novo Cadastro
-  document.getElementById('btnNewClient').addEventListener('click', () => openClientForm());
-  document.getElementById('btnNewCase').addEventListener('click', () => openCaseForm());
-  document.getElementById('btnNewTransaction').addEventListener('click', () => openTransactionForm());
-  document.getElementById('btnNewTimesheet').addEventListener('click', () => openTimesheetForm());
+  _addEvent('btnNewClient', 'click', () => openClientForm());
+  _addEvent('btnNewCase', 'click', () => openCaseForm());
+  _addEvent('btnNewTransaction', 'click', () => openTransactionForm());
+  _addEvent('btnNewTimesheet', 'click', () => openTimesheetForm());
 
   // Input de Taxa do Timesheet atualizado
-  document.getElementById('timesheetHoursInput').addEventListener('input', updateTimesheetSubtotal);
-  document.getElementById('timesheetRateInput').addEventListener('input', updateTimesheetSubtotal);
+  _addEvent('timesheetHoursInput', 'input', updateTimesheetSubtotal);
+  _addEvent('timesheetRateInput', 'input', updateTimesheetSubtotal);
 
   // Regra condicional de lançamento de transações
-  document.getElementById('transCashTypeSelect').addEventListener('change', toggleTransactionFormFields);
+  _addEvent('transCashTypeSelect', 'change', toggleTransactionFormFields);
 
-  // Monitoradores de Filtros (Pesquisas em Tempo de Execução)
-  document.getElementById('searchTransaction').addEventListener('input', renderTransactionsTable);
-  document.getElementById('filterCashType').addEventListener('change', renderTransactionsTable);
-  document.getElementById('filterMovementType').addEventListener('change', renderTransactionsTable);
-  document.getElementById('filterStatus').addEventListener('change', renderTransactionsTable);
+  // Monitoradores de Filtros
+  _addEvent('searchTransaction', 'input', renderTransactionsTable);
+  _addEvent('filterCashType', 'change', renderTransactionsTable);
+  _addEvent('filterMovementType', 'change', renderTransactionsTable);
+  _addEvent('filterStatus', 'change', renderTransactionsTable);
   
-  document.getElementById('searchClient').addEventListener('input', renderClientsTable);
-  document.getElementById('searchCase').addEventListener('input', renderCasesTable);
-  document.getElementById('searchTimesheet').addEventListener('input', renderTimesheetsTable);
+  _addEvent('searchClient', 'input', renderClientsTable);
+  _addEvent('searchCase', 'input', renderCasesTable);
+  _addEvent('searchTimesheet', 'input', renderTimesheetsTable);
 
+  _addEvent('btnSwitchToRegister', 'click', (e) => {
+    e.preventDefault();
+    const lSection = document.getElementById('loginFormSection');
+    const rSection = document.getElementById('registerFormSection');
+    if (lSection) lSection.style.display = 'none';
+    if (rSection) rSection.style.display = 'block';
+  });
 
+  _addEvent('btnSwitchToLogin', 'click', (e) => {
+    e.preventDefault();
+    const lSection = document.getElementById('loginFormSection');
+    const rSection = document.getElementById('registerFormSection');
+    if (lSection) lSection.style.display = 'block';
+    if (rSection) rSection.style.display = 'none';
+  });
+
+  // Botão de Logout
+  _addEvent('btnLogout', 'click', async () => {
+    try {
+      showLoader(true);
+      await signOutUser();
+      AppState.session = null;
+      AppState.userProfile = null;
+      localStorage.removeItem('advcontrol_session_cache');
+      showToast("Sessão encerrada com sucesso.", "success");
+      showAuthScreen(true);
+    } catch (err) {
+      showToast("Erro ao deslogar: " + err.message, "error");
+    } finally {
+      showLoader(false);
+    }
+  });
 
   // --- Listeners de Configurações & Onboarding ---
-  const wPrimary = document.getElementById('wizardPrimaryColor');
-  if (wPrimary) {
-    wPrimary.addEventListener('input', (e) => {
-      document.getElementById('wizardPrimaryColorCode').textContent = e.target.value.toUpperCase();
-    });
-  }
-  const wSecondary = document.getElementById('wizardSecondaryColor');
-  if (wSecondary) {
-    wSecondary.addEventListener('input', (e) => {
-      document.getElementById('wizardSecondaryColorCode').textContent = e.target.value.toUpperCase();
-    });
-  }
+  _addEvent('wizardPrimaryColor', 'input', (e) => {
+    const code = document.getElementById('wizardPrimaryColorCode');
+    if (code) code.textContent = e.target.value.toUpperCase();
+  });
+  _addEvent('wizardSecondaryColor', 'input', (e) => {
+    const code = document.getElementById('wizardSecondaryColorCode');
+    if (code) code.textContent = e.target.value.toUpperCase();
+  });
 
-  const sPrimary = document.getElementById('settingsPrimaryColor');
-  if (sPrimary) {
-    sPrimary.addEventListener('input', (e) => {
-      document.getElementById('settingsPrimaryColorCode').textContent = e.target.value.toUpperCase();
-    });
-  }
-  const sSecondary = document.getElementById('settingsSecondaryColor');
-  if (sSecondary) {
-    sSecondary.addEventListener('input', (e) => {
-      document.getElementById('settingsSecondaryColorCode').textContent = e.target.value.toUpperCase();
-    });
-  }
+  _addEvent('settingsPrimaryColor', 'input', (e) => {
+    const code = document.getElementById('settingsPrimaryColorCode');
+    if (code) code.textContent = e.target.value.toUpperCase();
+  });
+  _addEvent('settingsSecondaryColor', 'input', (e) => {
+    const code = document.getElementById('settingsSecondaryColorCode');
+    if (code) code.textContent = e.target.value.toUpperCase();
+  });
 
   // Preview de Logomarca no Onboarding Wizard
-  const wizardLogoInput = document.getElementById('wizardLogo');
-  if (wizardLogoInput) {
-    wizardLogoInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-          wizardLogoBase64 = evt.target.result;
-          document.getElementById('wizardLogoPreview').src = wizardLogoBase64;
-          document.getElementById('wizardLogoPreviewContainer').style.display = 'flex';
-        };
-        reader.readAsDataURL(file);
-      }
-    });
-  }
+  _addEvent('wizardLogo', 'change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        wizardLogoBase64 = evt.target.result;
+        const img = document.getElementById('wizardLogoPreview');
+        const cont = document.getElementById('wizardLogoPreviewContainer');
+        if (img) img.src = wizardLogoBase64;
+        if (cont) cont.style.display = 'flex';
+      };
+      reader.readAsDataURL(file);
+    }
+  });
 
   // Preview de QR Code Pix no Onboarding Wizard
-  const wizardPixQRInput = document.getElementById('wizardPixQR');
-  if (wizardPixQRInput) {
-    wizardPixQRInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-          wizardPixQRBase64 = evt.target.result;
-          document.getElementById('wizardPixQRPreview').src = wizardPixQRBase64;
-          document.getElementById('wizardPixQRPreviewContainer').style.display = 'flex';
-        };
-        reader.readAsDataURL(file);
-      }
-    });
-  }
+  _addEvent('wizardPixQR', 'change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        wizardPixQRBase64 = evt.target.result;
+        const img = document.getElementById('wizardPixQRPreview');
+        const cont = document.getElementById('wizardPixQRPreviewContainer');
+        if (img) img.src = wizardPixQRBase64;
+        if (cont) cont.style.display = 'flex';
+      };
+      reader.readAsDataURL(file);
+    }
+  });
 
   // Preview de Logomarca no Painel de Configurações
-  const settingsLogoInput = document.getElementById('settingsLogo');
-  if (settingsLogoInput) {
-    settingsLogoInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-          settingsLogoBase64 = evt.target.result;
-          document.getElementById('settingsLogoPreview').src = settingsLogoBase64;
-          document.getElementById('settingsLogoPreviewContainer').style.display = 'flex';
-        };
-        reader.readAsDataURL(file);
-      }
-    });
-  }
+  _addEvent('settingsLogo', 'change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        settingsLogoBase64 = evt.target.result;
+        const img = document.getElementById('settingsLogoPreview');
+        const cont = document.getElementById('settingsLogoPreviewContainer');
+        if (img) img.src = settingsLogoBase64;
+        if (cont) cont.style.display = 'flex';
+      };
+      reader.readAsDataURL(file);
+    }
+  });
 
   // Preview de QR Code Pix no Painel de Configurações
-  const settingsPixQRInput = document.getElementById('settingsPixQR');
-  if (settingsPixQRInput) {
-    settingsPixQRInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-          settingsPixQRBase64 = evt.target.result;
-          document.getElementById('settingsPixQRPreview').src = settingsPixQRBase64;
-          document.getElementById('settingsPixQRPreviewContainer').style.display = 'flex';
-        };
-        reader.readAsDataURL(file);
-      }
-    });
-  }
-
+  _addEvent('settingsPixQR', 'change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        settingsPixQRBase64 = evt.target.result;
+        const img = document.getElementById('settingsPixQRPreview');
+        const cont = document.getElementById('settingsPixQRPreviewContainer');
+        if (img) img.src = settingsPixQRBase64;
+        if (cont) cont.style.display = 'flex';
+      };
+      reader.readAsDataURL(file);
+    }
+  });
 }
 
 // =========================================================================
