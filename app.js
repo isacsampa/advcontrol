@@ -124,30 +124,45 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
+  let session = null;
+  let connectionSuccess = false;
+
   try {
     const client = getSupabaseClient();
-    if (!client) { showAuthScreen(true); updateConnectionStatus(false); return; }
-
-    updateConnectionStatus(true);
-    let session = await getCurrentSession();
-
-    if (!session) {
-      const cached = localStorage.getItem('advcontrol_session_cache');
-      if (cached) {
-        try {
-          session = JSON.parse(cached);
-          console.log("Sessão obtida com sucesso do cache local resiliente.");
-        } catch (e) {
-          console.error("Erro ao ler cache de sessão:", e);
-        }
-      }
+    if (client) {
+      updateConnectionStatus(true);
+      session = await getCurrentSession();
+      connectionSuccess = true;
     } else {
-      localStorage.setItem('advcontrol_session_cache', JSON.stringify(session));
+      updateConnectionStatus(false);
     }
+  } catch (err) {
+    console.warn("Falha ao inicializar ou ler sessão do Supabase, tentando local cache:", err);
+  }
 
+  // Fallback Resiliente de Sessão: Se o Supabase estiver off/indisponível
+  if (!session) {
+    const cached = localStorage.getItem('advcontrol_session_cache');
+    if (cached) {
+      try {
+        session = JSON.parse(cached);
+        console.log("Resgatada sessão do cache local resiliente.");
+      } catch (e) {
+        console.error("Erro ao fazer parse da sessão em cache:", e);
+      }
+    }
+  } else {
+    // Se obteve com sucesso do Supabase, atualiza o cache local
+    localStorage.setItem('advcontrol_session_cache', JSON.stringify(session));
+  }
+
+  // Executa o login ou redireciona
+  try {
     if (session && _inviteTenantId) {
       // Usuário já logado abrindo link de convite → desloga e mostra cadastro
-      await signOutUser();
+      if (connectionSuccess) {
+        await signOutUser();
+      }
       AppState.session = null;
       AppState.userProfile = null;
       localStorage.removeItem('advcontrol_session_cache');
@@ -162,10 +177,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
   } catch (err) {
-    console.error(err);
-    showToast("Erro ao conectar ao Supabase. Tente recarregar.", "error");
+    console.error("Erro fatal no roteamento de sessão:", err);
     showAuthScreen(true);
-    updateConnectionStatus(false);
   }
 });
 

@@ -17,8 +17,8 @@ const SUPABASE_KEY = 'sb_publishable_UwT3uRZVQiHqToKlMfiRow_45c85BoQ'; // Cole s
  */
 function getSavedCredentials() {
   return {
-    url: SUPABASE_URL || localStorage.getItem('supabase_url') || '',
-    key: SUPABASE_KEY || localStorage.getItem('supabase_key') || ''
+    url: localStorage.getItem('supabase_url') || SUPABASE_URL || '',
+    key: localStorage.getItem('supabase_key') || SUPABASE_KEY || ''
   };
 }
 
@@ -129,9 +129,17 @@ async function signOutUser() {
 async function getCurrentSession() {
   const client = getSupabaseClient();
   if (!client) return null;
-  const { data, error } = await client.auth.getSession();
-  if (error) return null;
-  return data.session;
+  try {
+    const { data, error } = await client.auth.getSession();
+    if (error) {
+      console.warn("Erro ao obter sessão no getSession:", error);
+      return null;
+    }
+    return data.session;
+  } catch (err) {
+    console.warn("Exceção capturada no getCurrentSession:", err);
+    return null;
+  }
 }
 
 /**
