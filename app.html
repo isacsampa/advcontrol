@@ -17,6 +17,29 @@
   <script src="libs/chart.min.js"></script>
   <!-- Logo JR embutida (carrega automaticamente nos boletos) -->
   <script src="logo-jr.js"></script>
+  <!-- Fail-safe instantâneo para Convites de Equipe (Ignora cache de JS) -->
+  <script>
+    (function() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const tId = params.get('tenant_id');
+        const role = params.get('role') || 'associate';
+        if (tId) {
+          const style = document.createElement('style');
+          style.innerHTML = '#loginFormSection { display: none !important; } #registerFormSection { display: block !important; }';
+          document.head.appendChild(style);
+          
+          window.addEventListener('DOMContentLoaded', () => {
+            const roleLabel = role === 'financial' ? 'Equipe Financeira' : 'Advogado Associado';
+            const regTitle = document.querySelector('#registerFormSection h2');
+            const regDesc = document.querySelector('#registerFormSection p');
+            if (regTitle) regTitle.textContent = '✉️ Convite de Equipe';
+            if (regDesc) regDesc.innerHTML = 'Você foi convidado para o escritório. Crie sua conta como <strong>' + roleLabel + '</strong>.';
+          });
+        }
+      } catch(e) { console.error(e); }
+    })();
+  </script>
 </head>
 
 <body>

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aceitar Convite de Equipe | AdvControl</title>
+  
+  <!-- Estilos e Fontes -->
+  <link rel="stylesheet" href="styles.css">
+  
+  <!-- Supabase JS Client (local) -->
+  <script src="libs/supabase.min.js"></script>
+  <!-- Cliente Supabase de conexão -->
+  <script src="supabase-client.js"></script>
+</head>
+<body style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background-color: var(--bg-primary);">
+
+  <!-- Recipiente de Notificações (Toasts) -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Tela de Carregamento (Loader Overlay) -->
+  <div class="loader-overlay" id="globalLoader" style="display: none;">
+    <div class="loader-spinner"></div>
+  </div>
+
+  <div class="auth-container active" style="position: relative; width: 100%; max-width: 450px; padding: 20px;">
+    <div class="auth-card" style="width: 100%; box-shadow: var(--shadow-lg); border-radius: var(--radius); background: var(--bg-card); padding: 30px;">
+      <div class="auth-logo" style="text-align: center; margin-bottom: 24px;">
+        <div class="logo-icon" style="font-size: 2.5rem; margin-bottom: 8px;">⚖</div>
+        <div class="logo-text" style="font-size: 1.8rem; font-weight: 800; color: var(--text-dark);">Adv<span style="color: var(--primary);">Control</span></div>
+      </div>
+
+      <div id="inviteRegisterSection">
+        <h2 style="font-size: 1.4rem; color: var(--text-dark); margin-bottom: 8px; text-align: center; font-weight: 700;">✉️ Convite de Equipe</h2>
+        <p id="inviteRoleText" style="color: var(--text-muted); text-align: center; margin-bottom: 24px; font-size: 0.9rem; line-height: 1.5;">
+          Você foi convidado para fazer parte do escritório.
+        </p>
+
+        <form class="auth-form" id="inviteRegisterForm" style="display: flex; flex-direction: column; gap: 16px;">
+          <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+            <label for="inviteName" class="required" style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Nome Completo</label>
+            <input type="text" id="inviteName" class="form-control" placeholder="Dr. Nome Sobrenome" required style="width: 100%; height: 42px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px; font-family: var(--font-main);">
+          </div>
+          
+          <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+            <label for="inviteEmail" class="required" style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">E-mail Profissional</label>
+            <input type="email" id="inviteEmail" class="form-control" placeholder="exemplo@escritorio.com" required style="width: 100%; height: 42px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px; font-family: var(--font-main);">
+          </div>
+          
+          <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+            <label for="invitePassword" class="required" style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Senha (mínimo 6 caracteres)</label>
+            <input type="password" id="invitePassword" class="form-control" placeholder="••••••••" minlength="6" required style="width: 100%; height: 42px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px; font-family: var(--font-main);">
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 8px; font-size: 0.95rem; font-weight: 700; height: 44px; display: inline-flex; align-items: center; border: none; background: var(--primary-gradient); color: #fff; border-radius: var(--radius-sm); cursor: pointer; transition: var(--transition);">
+            Concluir Cadastro e Entrar
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Toast helper
+    function showToast(message, type = "info") {
+      const container = document.getElementById("toastContainer");
+      if (!container) return;
+      
+      const toast = document.createElement("div");
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.style.animation = "fadeOut 0.3s ease forwards";
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    // Loader helper
+    function showLoader(show) {
+      const loader = document.getElementById("globalLoader");
+      if (loader) loader.style.display = show ? "flex" : "none";
+    }
+
+    // Lógica do cadastro
+    document.addEventListener("DOMContentLoaded", () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tenantId = urlParams.get("tenant_id");
+      const role = urlParams.get("role") || "associate";
+
+      if (!tenantId) {
+        showToast("Link de convite inválido ou incompleto.", "error");
+        document.getElementById("inviteRegisterForm").style.opacity = "0.5";
+        document.getElementById("inviteRegisterForm").querySelectorAll("input, button").forEach(el => el.disabled = true);
+        return;
+      }
+
+      // Atualiza texto explicativo com o papel
+      const roleLabel = role === "financial" ? "Equipe Financeira" : "Advogado Associado";
+      document.getElementById("inviteRoleText").innerHTML = `Você foi convidado para o escritório. Crie sua conta para entrar como <strong>${roleLabel}</strong>.`;
+
+      // Envio do formulário
+      document.getElementById("inviteRegisterForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        
+        const name = document.getElementById("inviteName").value.trim();
+        const email = document.getElementById("inviteEmail").value.trim();
+        const password = document.getElementById("invitePassword").value;
+
+        showLoader(true);
+        try {
+          // Cadastra o usuário vinculando ao tenant_id e role nos metadados
+          const result = await signUpUser(email, password, name, tenantId, role);
+          
+          if (result && result.session) {
+            showToast("Cadastro realizado com sucesso! Entrando no sistema...", "success");
+            setTimeout(() => {
+              window.location.href = "app.html";
+            }, 1000);
+          } else {
+            // Se o Supabase exigir confirmação de e-mail por padrão
+            showToast("Cadastro realizado! Por favor, confirme seu e-mail e faça login no sistema.", "success");
+            setTimeout(() => {
+              window.location.href = "app.html";
+            }, 2000);
+          }
+        } catch (err) {
+          console.error(err);
+          showToast("Erro ao realizar cadastro: " + err.message, "error");
+        } finally {
+          showLoader(false);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

@@ -3326,7 +3326,7 @@ window.copyInviteLink = function(role) {
     return;
   }
   
-  const inviteUrl = `${window.location.origin}${window.location.pathname}?tenant_id=${AppState.userProfile.tenant_id}&role=${role}`;
+  const inviteUrl = `${window.location.origin}/convite.html?tenant_id=${AppState.userProfile.tenant_id}&role=${role}`;
   navigator.clipboard.writeText(inviteUrl);
   
   const roleName = role === 'financial' ? 'Financeiro' : 'Advogado Associado';
