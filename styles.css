@@ -674,6 +674,59 @@ tr:hover td { background: #FAFAF8; }
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
+
+  /* Grid layouts viram coluna única no celular */
+  #agendaLayoutGrid,
+  #orgTasksLayoutGrid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  /* Formulários no celular: botões ocupam a largura total e ganham mais espaçamento */
+  .auth-card {
+    padding: 24px 16px !important;
+  }
+
+  .form-control, .btn {
+    height: 44px; /* Melhor área de toque */
+    font-size: 0.92rem;
+  }
+
+  /* Timeline de compromissos ajustada para telas verticais estreitas */
+  #appointmentsListContainer {
+    padding: 10px 0 !important;
+    gap: 12px !important;
+  }
+
+  #appointmentsListContainer .onboarding-step-card {
+    flex-direction: column !important;
+    gap: 12px;
+    align-items: stretch !important;
+    padding: 14px !important;
+  }
+
+  #appointmentsListContainer .onboarding-step-card > div {
+    flex-direction: column !important;
+    gap: 10px !important;
+    align-items: stretch !important;
+  }
+
+  #appointmentsListContainer .onboarding-step-card div[style*="width: 70px"] {
+    width: 100% !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 6px 12px !important;
+    height: 38px !important;
+  }
+
+  #appointmentsListContainer .onboarding-step-card button[onclick*="handleDeleteAppointment"] {
+    align-self: flex-end;
+    background: #ffebee !important;
+    border-radius: 4px;
+    width: 32px;
+    height: 32px;
+  }
 }
 
 .search-result-item {
