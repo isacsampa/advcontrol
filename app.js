@@ -33,10 +33,10 @@ const AppState = {
 
 /** Abas permitidas por papel */
 const TAB_PERMISSIONS = {
-  owner:     ['dashboard', 'onboarding', 'transactions', 'clients', 'cases', 'timesheets', 'members', 'billing-generator', 'organization'],
-  partner:   ['dashboard', 'onboarding', 'transactions', 'clients', 'cases', 'timesheets', 'billing-generator', 'organization'],
-  financial: ['dashboard', 'onboarding', 'transactions', 'clients', 'cases', 'billing-generator', 'organization'],
-  associate: ['dashboard', 'onboarding', 'clients', 'cases', 'timesheets', 'billing-generator', 'organization'],
+  owner:     ['dashboard', 'transactions', 'clients', 'cases', 'timesheets', 'members', 'billing-generator', 'organization'],
+  partner:   ['dashboard', 'transactions', 'clients', 'cases', 'timesheets', 'billing-generator', 'organization'],
+  financial: ['dashboard', 'transactions', 'clients', 'cases', 'billing-generator', 'organization'],
+  associate: ['clients', 'cases', 'timesheets', 'organization'],
 };
 
 /** Ações permitidas por papel */
@@ -215,8 +215,9 @@ async function handleUserAuthenticated(session) {
     // Aplica restrições de navegação baseadas no papel do usuário
     applyNavPermissions();
     
-    // Garante que a aba ativa é permitida para este papel
-    const targetTab = (canAccessTab(AppState.activeTab) && AppState.activeTab !== 'settings') ? AppState.activeTab : 'dashboard';
+    // Garante que a aba ativa é permitida para este papel, caso contrário vai para a primeira aba permitida
+    const allowedTabs = TAB_PERMISSIONS[profile.role] || ['clients'];
+    const targetTab = (canAccessTab(AppState.activeTab) && AppState.activeTab !== 'settings') ? AppState.activeTab : allowedTabs[0];
     switchTab(targetTab);
   } catch (error) {
     console.error(error);
