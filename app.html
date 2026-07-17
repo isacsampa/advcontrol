@@ -16,7 +16,7 @@
   <!-- Chart.js para Gráficos Dinâmicos (local) -->
   <script src="libs/chart.min.js"></script>
   <!-- Logo JR embutida (carrega automaticamente nos boletos) -->
-  <script src="logo-jr.js?v=1.1.0"></script>
+  <script src="logo-jr.js?v=1.2.0"></script>
   <!-- Fail-safe instantâneo para Convites de Equipe (Ignora cache de JS) -->
   <script>
     (function() {
@@ -695,9 +695,9 @@
 
         <!-- 1. Sub-Aba: TAREFAS INTERNAS -->
         <div id="subtab-org-tasks" class="org-subtab-pane">
-          <div style="display: grid; grid-template-columns: 1fr 1.8fr; gap: 24px; align-items: start;">
+          <div id="orgTasksLayoutGrid" style="display: grid; grid-template-columns: 1fr 1.8fr; gap: 24px; align-items: start;">
             <!-- Form Adicionar Tarefa -->
-            <div class="chart-card" style="padding: 20px;">
+            <div id="orgTaskFormCard" class="chart-card" style="padding: 20px;">
               <h3>Nova Tarefa</h3>
               <form id="orgTaskForm" onsubmit="event.preventDefault(); addOrgTask();" style="margin-top: 16px;">
                 <div class="form-group">
@@ -1400,8 +1400,8 @@
 
   <!-- Scripts do App -->
   <script src="libs/qrcode.min.js"></script>
-  <script src="supabase-client.js?v=1.1.0"></script>
-  <script src="app.js?v=1.1.0"></script>
+  <script src="supabase-client.js?v=1.2.0"></script>
+  <script src="app.js?v=1.2.0"></script>
 </body>
 
 </html>

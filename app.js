@@ -34,7 +34,7 @@ const AppState = {
 /** Abas permitidas por papel */
 const TAB_PERMISSIONS = {
   owner:     ['dashboard', 'transactions', 'clients', 'cases', 'timesheets', 'members', 'billing-generator', 'organization'],
-  partner:   ['dashboard', 'transactions', 'clients', 'cases', 'timesheets', 'billing-generator', 'organization'],
+  partner:   ['transactions', 'clients', 'cases', 'timesheets', 'billing-generator', 'organization'],
   financial: ['dashboard', 'transactions', 'clients', 'cases', 'billing-generator', 'organization'],
   associate: ['clients', 'cases', 'timesheets', 'organization'],
 };
@@ -2430,6 +2430,21 @@ async function initOrganizationTab() {
   } finally {
     showLoader(false);
   }
+
+  // Controle de exibição do formulário de criação de tarefas (apenas Dono cria)
+  const isOwner = AppState.userProfile?.role === 'owner';
+  const formCard = document.getElementById('orgTaskFormCard');
+  const layoutGrid = document.getElementById('orgTasksLayoutGrid');
+  if (formCard && layoutGrid) {
+    if (isOwner) {
+      formCard.style.display = '';
+      layoutGrid.style.gridTemplateColumns = '1fr 1.8fr';
+    } else {
+      formCard.style.display = 'none';
+      layoutGrid.style.gridTemplateColumns = '1fr';
+    }
+  }
+
   renderOrgTasksTable();
 }
 
@@ -2535,6 +2550,13 @@ function renderOrgTasksTable() {
   const countBadge = document.getElementById('orgTaskCount');
   
   const tasks = AppState.orgTasks || [];
+  const isOwner = AppState.userProfile?.role === 'owner';
+  
+  // Oculta ou mostra o cabeçalho da coluna de Ações na tabela
+  const headerActions = document.querySelector('#subtab-org-tasks table th:last-child');
+  if (headerActions) {
+    headerActions.style.display = isOwner ? '' : 'none';
+  }
   
   tbody.innerHTML = '';
   let pendingCount = 0;
@@ -2542,7 +2564,7 @@ function renderOrgTasksTable() {
   if (tasks.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">
+        <td colspan="${isOwner ? '5' : '4'}" style="text-align: center; color: var(--text-muted); padding: 30px;">
           Nenhuma tarefa cadastrada. Adicione uma no formulário ao lado!
         </td>
       </tr>
@@ -2566,6 +2588,17 @@ function renderOrgTasksTable() {
     // Suporte a campo assignee_name (Supabase) ou assignee (localStorage legado)
     const assigneeName = task.assignee_name || task.assignee || '---';
 
+    const actionCell = isOwner 
+      ? `<td style="text-align: center;">
+          <button class="btn-action btn-delete" onclick="handleDeleteOrgTask('${task.id}')" title="Excluir tarefa">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+        </td>`
+      : '';
+
     tbody.innerHTML += `
       <tr style="${task.done ? 'opacity: 0.55; text-decoration: line-through;' : ''}">
         <td style="text-align: center;">
@@ -2574,14 +2607,7 @@ function renderOrgTasksTable() {
         <td><strong>${task.activity}</strong></td>
         <td><span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-primary); border: 1px solid var(--border-color);">${assigneeName}</span></td>
         <td ${deadlineStyle}>${formattedDeadline} ${isOverdue ? '⚠️ Atrasado' : ''}</td>
-        <td style="text-align: center;">
-          <button class="btn-action btn-delete" onclick="handleDeleteOrgTask('${task.id}')" title="Excluir tarefa">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            </svg>
-          </button>
-        </td>
+        ${actionCell}
       </tr>
     `;
   });
