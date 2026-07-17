@@ -956,3 +956,76 @@ function _deleteAppointmentLocalStorage(id) {
   localStorage.setItem('advcontrol_appointments', JSON.stringify(list));
   return true;
 }
+
+// =========================================================================
+// 10. CONFIGURAÇÕES DO ESCRITÓRIO (tenant_settings)
+// =========================================================================
+
+async function getOfficeSettings(tenantId) {
+  const client = getSupabaseClient();
+  if (!client) return _getOfficeSettingsLocalStorage(tenantId);
+
+  try {
+    const { data, error } = await client
+      .from('tenant_settings')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+
+    if (error) {
+      if (error.code === 'PGRST116' || error.message.includes('relation "tenant_settings" does not exist')) {
+        return _getOfficeSettingsLocalStorage(tenantId);
+      }
+      throw error;
+    }
+    return data || _getOfficeSettingsLocalStorage(tenantId);
+  } catch (err) {
+    console.warn("Erro ao buscar configurações no Supabase, usando localStorage fallback:", err);
+    return _getOfficeSettingsLocalStorage(tenantId);
+  }
+}
+
+async function updateOfficeSettings(tenantId, settingsData) {
+  const client = getSupabaseClient();
+  if (!client) return _updateOfficeSettingsLocalStorage(tenantId, settingsData);
+
+  try {
+    const payload = { tenant_id: tenantId, ...settingsData, updated_at: new Date().toISOString() };
+    const { data, error } = await client
+      .from('tenant_settings')
+      .upsert(payload, { onConflict: 'tenant_id' })
+      .select();
+
+    if (error) {
+      if (error.message.includes('relation "tenant_settings" does not exist')) {
+        return _updateOfficeSettingsLocalStorage(tenantId, settingsData);
+      }
+      throw error;
+    }
+    return data[0];
+  } catch (err) {
+    console.warn("Erro ao salvar configurações no Supabase, usando localStorage fallback:", err);
+    return _updateOfficeSettingsLocalStorage(tenantId, settingsData);
+  }
+}
+
+function _getOfficeSettingsLocalStorage(tenantId) {
+  const key = `advcontrol_settings_${tenantId}`;
+  return JSON.parse(localStorage.getItem(key) || 'null');
+}
+
+function _updateOfficeSettingsLocalStorage(tenantId, settingsData) {
+  const key = `advcontrol_settings_${tenantId}`;
+  const existing = JSON.parse(localStorage.getItem(key) || '{}');
+  const updated = {
+    tenant_id: tenantId,
+    ...existing,
+    ...settingsData,
+    updated_at: new Date().toISOString()
+  };
+  localStorage.setItem(key, JSON.stringify(updated));
+  return updated;
+}
+
+window.getOfficeSettings = getOfficeSettings;
+window.updateOfficeSettings = updateOfficeSettings;

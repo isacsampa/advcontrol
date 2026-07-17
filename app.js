@@ -33,10 +33,11 @@ const AppState = {
 
 /** Abas permitidas por papel */
 const TAB_PERMISSIONS = {
-  owner:     ['dashboard', 'transactions', 'clients', 'cases', 'timesheets', 'members', 'billing-generator', 'organization'],
-  partner:   ['transactions', 'clients', 'cases', 'timesheets', 'billing-generator', 'organization'],
-  financial: ['dashboard', 'transactions', 'clients', 'cases', 'billing-generator', 'organization'],
-  associate: ['clients', 'cases', 'organization'],
+  owner:     ['dashboard', 'agenda', 'transactions', 'clients', 'cases', 'timesheets', 'members', 'billing-generator', 'organization', 'office-settings'],
+  partner:   ['agenda', 'transactions', 'clients', 'cases', 'timesheets', 'billing-generator', 'organization'],
+  financial: ['dashboard', 'agenda', 'transactions', 'clients', 'cases', 'billing-generator', 'organization'],
+  associate: ['agenda', 'clients', 'cases', 'organization'],
+  secretary: ['agenda', 'clients', 'cases', 'organization']
 };
 
 /** Ações permitidas por papel */
@@ -45,6 +46,7 @@ const ACTION_PERMISSIONS = {
   partner:   ['create', 'edit', 'splits', 'create_timesheets', 'view_all_timesheets'],
   financial: ['create', 'edit'],
   associate: ['create_timesheets', 'edit_own_timesheets'],
+  secretary: ['create', 'edit'],
 };
 
 /** Verifica se o usuário logado tem permissão para uma ação */
@@ -212,6 +214,13 @@ async function handleUserAuthenticated(session) {
     
     // Carrega dados iniciais do banco
     await refreshAllData();
+
+    // Lógica para verificar exibição do Assistente de Onboarding Inicial
+    if (profile.role === 'owner' && (!AppState.officeSettings || !AppState.officeSettings.onboarding_completed)) {
+      showOnboardingWizard(true);
+    } else {
+      showOnboardingWizard(false);
+    }
     
     // Aplica restrições de navegação baseadas no papel do usuário
     applyNavPermissions();
@@ -407,6 +416,11 @@ function switchTab(tabId) {
       subtitleEl.textContent = "Gestão de tarefas internas, checklists de documentos e procedimentos jurídicos.";
       initOrganizationTab();
       break;
+    case 'office-settings':
+      titleEl.textContent = "Configurações do Escritório";
+      subtitleEl.textContent = "Defina os dados institucionais, identidade visual e faturamento.";
+      initOfficeSettingsTab();
+      break;
   }
 }
 
@@ -426,14 +440,15 @@ async function refreshAllData() {
   if (!isSupabaseConfigured() || !AppState.session) return;
   
   try {
-    const [clients, cases, transactions, timesheets, members, orgTasks, appointments] = await Promise.all([
+    const [clients, cases, transactions, timesheets, members, orgTasks, appointments, settings] = await Promise.all([
       getClients(),
       getCases(),
       getTransactions(),
       getTimesheets(),
       getUserProfiles(),
       getOrgTasks(),
-      getAppointments()
+      getAppointments(),
+      getOfficeSettings(AppState.userProfile.tenant_id)
     ]);
     
     AppState.clients = clients || [];
@@ -443,6 +458,10 @@ async function refreshAllData() {
     AppState.members = members || [];
     AppState.orgTasks = orgTasks || [];
     AppState.appointments = appointments || [];
+    AppState.officeSettings = settings || null;
+
+    // Aplica o tema visual do escritório
+    applyOfficeTheme(AppState.officeSettings);
     
     // Atualiza a lista interativa de onboarding se estiver configurada
     if (typeof renderOnboardingChecklist === 'function') {
@@ -1949,6 +1968,101 @@ function initFormEventListeners() {
 
 
 
+  // --- Listeners de Configurações & Onboarding ---
+  const wPrimary = document.getElementById('wizardPrimaryColor');
+  if (wPrimary) {
+    wPrimary.addEventListener('input', (e) => {
+      document.getElementById('wizardPrimaryColorCode').textContent = e.target.value.toUpperCase();
+    });
+  }
+  const wSecondary = document.getElementById('wizardSecondaryColor');
+  if (wSecondary) {
+    wSecondary.addEventListener('input', (e) => {
+      document.getElementById('wizardSecondaryColorCode').textContent = e.target.value.toUpperCase();
+    });
+  }
+
+  const sPrimary = document.getElementById('settingsPrimaryColor');
+  if (sPrimary) {
+    sPrimary.addEventListener('input', (e) => {
+      document.getElementById('settingsPrimaryColorCode').textContent = e.target.value.toUpperCase();
+    });
+  }
+  const sSecondary = document.getElementById('settingsSecondaryColor');
+  if (sSecondary) {
+    sSecondary.addEventListener('input', (e) => {
+      document.getElementById('settingsSecondaryColorCode').textContent = e.target.value.toUpperCase();
+    });
+  }
+
+  // Preview de Logomarca no Onboarding Wizard
+  const wizardLogoInput = document.getElementById('wizardLogo');
+  if (wizardLogoInput) {
+    wizardLogoInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          wizardLogoBase64 = evt.target.result;
+          document.getElementById('wizardLogoPreview').src = wizardLogoBase64;
+          document.getElementById('wizardLogoPreviewContainer').style.display = 'flex';
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  }
+
+  // Preview de QR Code Pix no Onboarding Wizard
+  const wizardPixQRInput = document.getElementById('wizardPixQR');
+  if (wizardPixQRInput) {
+    wizardPixQRInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          wizardPixQRBase64 = evt.target.result;
+          document.getElementById('wizardPixQRPreview').src = wizardPixQRBase64;
+          document.getElementById('wizardPixQRPreviewContainer').style.display = 'flex';
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  }
+
+  // Preview de Logomarca no Painel de Configurações
+  const settingsLogoInput = document.getElementById('settingsLogo');
+  if (settingsLogoInput) {
+    settingsLogoInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          settingsLogoBase64 = evt.target.result;
+          document.getElementById('settingsLogoPreview').src = settingsLogoBase64;
+          document.getElementById('settingsLogoPreviewContainer').style.display = 'flex';
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  }
+
+  // Preview de QR Code Pix no Painel de Configurações
+  const settingsPixQRInput = document.getElementById('settingsPixQR');
+  if (settingsPixQRInput) {
+    settingsPixQRInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          settingsPixQRBase64 = evt.target.result;
+          document.getElementById('settingsPixQRPreview').src = settingsPixQRBase64;
+          document.getElementById('settingsPixQRPreviewContainer').style.display = 'flex';
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  }
+
 }
 
 // =========================================================================
@@ -2077,7 +2191,6 @@ let billingLogoBase64 = (typeof JR_LOGO_BASE64 !== 'undefined') ? JR_LOGO_BASE64
  * Inicializa a aba do Emissor de Carnês
  */
 function initBillingGeneratorTab() {
-  // Preenche dados padrão incondicionalmente
   const addressInput = document.getElementById('bgAddress');
   const phoneInput = document.getElementById('bgPhone');
   const beneficiaryInput = document.getElementById('bgBeneficiary');
@@ -2085,16 +2198,16 @@ function initBillingGeneratorTab() {
   const pixKeyInput = document.getElementById('bgPixKey');
   const firstDueDateInput = document.getElementById('bgFirstDueDate');
 
-  beneficiaryInput.value = "Rego Júnior Advogados";
-  bankInput.value = "Banco Cora";
-  pixKeyInput.value = "financeiro@regojunior.adv.br";
-  phoneInput.value = "(11) 3254-8900";
-  addressInput.value = "Av. Paulista, 1200 - Cj. 41 - Bela Vista - São Paulo/SP";
+  // Preenche dados padrão a partir de configurações do escritório (com fallbacks)
+  const settings = AppState.officeSettings;
+  beneficiaryInput.value = settings?.beneficiary_name || "Rego Júnior Advogados";
+  bankInput.value = settings?.bank_name || "Banco Cora";
+  pixKeyInput.value = settings?.pix_key || "financeiro@regojunior.adv.br";
+  phoneInput.value = settings?.phone || "(11) 3254-8900";
+  addressInput.value = settings?.address || "Av. Paulista, 1200 - Cj. 41 - Bela Vista - São Paulo/SP";
 
-  // Inicializa logo corporativa se estiver vazia
-  if (!billingLogoBase64) {
-    billingLogoBase64 = (typeof JR_LOGO_BASE64 !== 'undefined') ? JR_LOGO_BASE64 : '';
-  }
+  // Inicializa logo corporativa
+  billingLogoBase64 = settings?.logo_base64 || ((typeof JR_LOGO_BASE64 !== 'undefined') ? JR_LOGO_BASE64 : '');
 
   // Define data padrão de vencimento para 30 dias a partir de hoje
   if (!firstDueDateInput.value) {
@@ -3767,6 +3880,296 @@ function renderAppointmentsList() {
       </div>
     `;
   });
+}
+
+// =========================================================================
+// 11. MÓDULO DE CONFIGURAÇÃO DE ONBOARDING & IDENTIDADE VISUAL
+// =========================================================================
+
+let onboardingStep = 1;
+let wizardLogoBase64 = null;
+let wizardPixQRBase64 = null;
+
+let settingsLogoBase64 = null;
+let settingsPixQRBase64 = null;
+
+// Controla a exibição do overlay de Onboarding
+function showOnboardingWizard(show) {
+  const overlay = document.getElementById('onboardingWizardOverlay');
+  if (!overlay) return;
+
+  if (show) {
+    overlay.style.display = 'flex';
+    onboardingStep = 1;
+    wizardLogoBase64 = null;
+    wizardPixQRBase64 = null;
+    
+    // Reseta form do wizard se existir
+    const form = document.getElementById('onboardingWizardForm');
+    if (form) form.reset();
+    
+    const logoContainer = document.getElementById('wizardLogoPreviewContainer');
+    if (logoContainer) logoContainer.style.display = 'none';
+    
+    const qrContainer = document.getElementById('wizardPixQRPreviewContainer');
+    if (qrContainer) qrContainer.style.display = 'none';
+    
+    const pCode = document.getElementById('wizardPrimaryColorCode');
+    if (pCode) pCode.textContent = '#E84C0B';
+    
+    const sCode = document.getElementById('wizardSecondaryColorCode');
+    if (sCode) sCode.textContent = '#F97316';
+
+    updateOnboardingWizardUI();
+  } else {
+    overlay.style.display = 'none';
+  }
+}
+
+function updateOnboardingWizardUI() {
+  document.querySelectorAll('.onboarding-step-pane').forEach(p => p.style.display = 'none');
+  const activePane = document.getElementById(`onboarding-step-${onboardingStep}`);
+  if (activePane) activePane.style.display = 'flex';
+
+  const indicator = document.getElementById('onboardingStepIndicator');
+  if (indicator) indicator.textContent = `${onboardingStep} / 3`;
+
+  const bar = document.getElementById('onboardingProgressBar');
+  if (bar) bar.style.width = `${onboardingStep * 33.3}%`;
+
+  const btnPrev = document.getElementById('btnOnboardingPrev');
+  if (btnPrev) btnPrev.style.visibility = onboardingStep === 1 ? 'hidden' : 'visible';
+
+  const btnNext = document.getElementById('btnOnboardingNext');
+  if (btnNext) btnNext.textContent = onboardingStep === 3 ? 'Concluir 🎉' : 'Avançar ▶';
+}
+
+window.changeOnboardingStep = function(dir) {
+  const newStep = onboardingStep + dir;
+  if (newStep >= 1 && newStep <= 3) {
+    onboardingStep = newStep;
+    updateOnboardingWizardUI();
+  }
+};
+
+window.handleOnboardingNext = function() {
+  if (onboardingStep < 3) {
+    const activePane = document.getElementById(`onboarding-step-${onboardingStep}`);
+    const requiredInputs = activePane.querySelectorAll('input[required]');
+    let valid = true;
+    requiredInputs.forEach(input => {
+      if (!input.value.trim()) {
+        valid = false;
+        input.style.borderColor = 'var(--danger)';
+      } else {
+        input.style.borderColor = 'var(--border-color)';
+      }
+    });
+
+    if (!valid) {
+      showToast("Preencha todos os campos obrigatórios para avançar.", "warning");
+      return;
+    }
+    window.changeOnboardingStep(1);
+  } else {
+    saveOnboardingData();
+  }
+};
+
+window.applyQuickPalette = function(primary, secondary) {
+  document.getElementById('wizardPrimaryColor').value = primary;
+  document.getElementById('wizardSecondaryColor').value = secondary;
+  document.getElementById('wizardPrimaryColorCode').textContent = primary;
+  document.getElementById('wizardSecondaryColorCode').textContent = secondary;
+};
+
+async function saveOnboardingData() {
+  const activePane = document.getElementById('onboarding-step-3');
+  const requiredInputs = activePane.querySelectorAll('input[required]');
+  let valid = true;
+  requiredInputs.forEach(input => {
+    if (!input.value.trim()) {
+      valid = false;
+      input.style.borderColor = 'var(--danger)';
+    } else {
+      input.style.borderColor = 'var(--border-color)';
+    }
+  });
+
+  if (!valid) {
+    showToast("Preencha todos os campos obrigatórios para concluir.", "warning");
+    return;
+  }
+
+  showLoader(true);
+  try {
+    const payload = {
+      office_name: document.getElementById('wizardOfficeName').value.trim(),
+      responsible_lawyer: document.getElementById('wizardResponsibleLawyer').value.trim(),
+      phone: document.getElementById('wizardPhone').value.trim() || null,
+      email: document.getElementById('wizardEmail').value.trim() || null,
+      address: document.getElementById('wizardAddress').value.trim() || null,
+      primary_color: document.getElementById('wizardPrimaryColor').value,
+      secondary_color: document.getElementById('wizardSecondaryColor').value,
+      logo_base64: wizardLogoBase64 || null,
+      bank_name: document.getElementById('wizardBankName').value.trim(),
+      beneficiary_name: document.getElementById('wizardBeneficiaryName').value.trim(),
+      pix_key: document.getElementById('wizardPixKey').value.trim(),
+      pix_qr_base64: wizardPixQRBase64 || null,
+      onboarding_completed: true
+    };
+
+    const saved = await updateOfficeSettings(AppState.userProfile.tenant_id, payload);
+    AppState.officeSettings = saved;
+    applyOfficeTheme(saved);
+    showToast("Escritório configurado com sucesso!", "success");
+    
+    showOnboardingWizard(false);
+    initBillingGeneratorTab();
+  } catch (err) {
+    showToast("Erro ao salvar configurações do onboarding: " + err.message, "error");
+  } finally {
+    showLoader(false);
+  }
+}
+
+// Inicializa a aba de configurações
+function initOfficeSettingsTab() {
+  const settings = AppState.officeSettings;
+  if (!settings) return;
+
+  document.getElementById('settingsOfficeName').value = settings.office_name || '';
+  document.getElementById('settingsResponsibleLawyer').value = settings.responsible_lawyer || '';
+  document.getElementById('settingsPhone').value = settings.phone || '';
+  document.getElementById('settingsEmail').value = settings.email || '';
+  document.getElementById('settingsAddress').value = settings.address || '';
+  
+  document.getElementById('settingsPrimaryColor').value = settings.primary_color || '#E84C0B';
+  document.getElementById('settingsSecondaryColor').value = settings.secondary_color || '#F97316';
+  document.getElementById('settingsPrimaryColorCode').textContent = (settings.primary_color || '#E84C0B').toUpperCase();
+  document.getElementById('settingsSecondaryColorCode').textContent = (settings.secondary_color || '#F97316').toUpperCase();
+
+  settingsLogoBase64 = settings.logo_base64;
+  if (settings.logo_base64) {
+    document.getElementById('settingsLogoPreview').src = settings.logo_base64;
+    document.getElementById('settingsLogoPreviewContainer').style.display = 'flex';
+  } else {
+    document.getElementById('settingsLogoPreviewContainer').style.display = 'none';
+  }
+
+  document.getElementById('settingsBankName').value = settings.bank_name || '';
+  document.getElementById('settingsBeneficiaryName').value = settings.beneficiary_name || '';
+  document.getElementById('settingsPixKey').value = settings.pix_key || '';
+
+  settingsPixQRBase64 = settings.pix_qr_base64;
+  if (settings.pix_qr_base64) {
+    document.getElementById('settingsPixQRPreview').src = settings.pix_qr_base64;
+    document.getElementById('settingsPixQRPreviewContainer').style.display = 'flex';
+  } else {
+    document.getElementById('settingsPixQRPreviewContainer').style.display = 'none';
+  }
+}
+
+window.removeSettingsLogo = function() {
+  settingsLogoBase64 = null;
+  document.getElementById('settingsLogoPreviewContainer').style.display = 'none';
+  document.getElementById('settingsLogo').value = '';
+};
+
+window.removeSettingsPixQR = function() {
+  settingsPixQRBase64 = null;
+  document.getElementById('settingsPixQRPreviewContainer').style.display = 'none';
+  document.getElementById('settingsPixQR').value = '';
+};
+
+window.saveOfficeSettingsForm = async function() {
+  const tenantId = AppState.userProfile?.tenant_id;
+  if (!tenantId) return;
+
+  showLoader(true);
+  try {
+    const payload = {
+      office_name: document.getElementById('settingsOfficeName').value.trim(),
+      responsible_lawyer: document.getElementById('settingsResponsibleLawyer').value.trim(),
+      phone: document.getElementById('settingsPhone').value.trim() || null,
+      email: document.getElementById('settingsEmail').value.trim() || null,
+      address: document.getElementById('settingsAddress').value.trim() || null,
+      primary_color: document.getElementById('settingsPrimaryColor').value,
+      secondary_color: document.getElementById('settingsSecondaryColor').value,
+      logo_base64: settingsLogoBase64 || null,
+      bank_name: document.getElementById('settingsBankName').value.trim(),
+      beneficiary_name: document.getElementById('settingsBeneficiaryName').value.trim(),
+      pix_key: document.getElementById('settingsPixKey').value.trim(),
+      pix_qr_base64: settingsPixQRBase64 || null,
+      onboarding_completed: true
+    };
+
+    const saved = await updateOfficeSettings(tenantId, payload);
+    AppState.officeSettings = saved;
+    applyOfficeTheme(saved);
+    showToast("Configurações do escritório atualizadas!", "success");
+    initBillingGeneratorTab();
+  } catch (err) {
+    showToast("Erro ao salvar: " + err.message, "error");
+  } finally {
+    showLoader(false);
+  }
+};
+
+// Aplicação de identidade visual em tempo real
+function applyOfficeTheme(settings) {
+  if (!settings) return;
+
+  if (settings.primary_color) {
+    document.documentElement.style.setProperty('--primary', settings.primary_color);
+    document.documentElement.style.setProperty('--primary-hover', adjustColorBrightness(settings.primary_color, -12));
+    document.documentElement.style.setProperty('--primary-light', settings.primary_color + '12'); // ~7% opacidade
+    document.documentElement.style.setProperty('--primary-gradient', `linear-gradient(135deg, ${settings.primary_color}, ${settings.secondary_color || settings.primary_color})`);
+  }
+
+  if (settings.secondary_color) {
+    document.documentElement.style.setProperty('--secondary', settings.secondary_color);
+    document.documentElement.style.setProperty('--secondary-light', settings.secondary_color + '1a'); // 10% opacidade
+  }
+
+  if (settings.logo_base64) {
+    const logoIcon = document.querySelector('.logo-icon');
+    if (logoIcon) {
+      logoIcon.innerHTML = `<img src="${settings.logo_base64}" style="max-height: 38px; max-width: 38px; border-radius: 6px; object-fit: contain;">`;
+    }
+  }
+
+  if (settings.office_name) {
+    const logoText = document.querySelector('.logo-text');
+    if (logoText) {
+      const name = settings.office_name.length > 18 ? settings.office_name.slice(0, 15) + '...' : settings.office_name;
+      logoText.innerHTML = name;
+    }
+  }
+}
+
+function adjustColorBrightness(hex, percent) {
+  let R = parseInt(hex.substring(1, 3), 16);
+  let G = parseInt(hex.substring(3, 5), 16);
+  let B = parseInt(hex.substring(5, 7), 16);
+
+  R = parseInt((R * (100 + percent)) / 100);
+  G = parseInt((G * (100 + percent)) / 100);
+  B = parseInt((B * (100 + percent)) / 100);
+
+  R = R < 255 ? R : 255;
+  G = G < 255 ? G : 255;
+  B = B < 255 ? B : 255;
+
+  R = R > 0 ? R : 0;
+  G = G > 0 ? G : 0;
+  B = B > 0 ? B : 0;
+
+  const rHex = R.toString(16).padStart(2, '0');
+  const gHex = G.toString(16).padStart(2, '0');
+  const bHex = B.toString(16).padStart(2, '0');
+
+  return `#${rHex}${gHex}${bHex}`;
 }
 
 // Exposição explícita de funções ao escopo global (window) para compatibilidade com eventos inline

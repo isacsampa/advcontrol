@@ -586,6 +586,40 @@ create policy org_tasks_delete on public.org_tasks
     and public.auth_user_role() in ('owner', 'partner')
   );
 
+-- ---------------------------------------------------------------------
+-- tenant_settings (Configurações do Escritório / Identidade Visual)
+-- ---------------------------------------------------------------------
+create table if not exists public.tenant_settings (
+  tenant_id uuid primary key references public.tenants(id) on delete cascade,
+  office_name text,
+  responsible_lawyer text,
+  logo_base64 text,
+  primary_color text,
+  secondary_color text,
+  phone text,
+  email text,
+  address text,
+  bank_name text,
+  beneficiary_name text,
+  pix_key text,
+  pix_qr_base64 text,
+  onboarding_completed boolean default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.tenant_settings enable row level security;
+
+create policy tenant_settings_select on public.tenant_settings
+  for select using (tenant_id = public.auth_tenant_id());
+
+create policy tenant_settings_insert on public.tenant_settings
+  for insert with check (tenant_id = public.auth_tenant_id());
+
+create policy tenant_settings_update on public.tenant_settings
+  for update using (tenant_id = public.auth_tenant_id())
+  with check (tenant_id = public.auth_tenant_id());
+
 -- =====================================================================================
 -- FIM DO SCHEMA
 -- =====================================================================================

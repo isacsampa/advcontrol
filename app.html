@@ -8,7 +8,7 @@
   <meta name="description" content="AdvControl — Sistema SaaS de gestão completa para escritórios de advocacia. Fluxo de caixa, clientes, processos e timesheets em um só lugar.">
 
   <!-- Estilos e Fontes -->
-  <link rel="stylesheet" href="styles.css?v=1.8.0">
+  <link rel="stylesheet" href="styles.css?v=1.9.0">
 
   <!-- Supabase JS Client v2 (local) -->
   <script src="libs/supabase.min.js"></script>
@@ -16,7 +16,7 @@
   <!-- Chart.js para Gráficos Dinâmicos (local) -->
   <script src="libs/chart.min.js"></script>
   <!-- Logo JR embutida (carrega automaticamente nos boletos) -->
-  <script src="logo-jr.js?v=1.8.0"></script>
+  <script src="logo-jr.js?v=1.9.0"></script>
   <!-- Fail-safe instantâneo para Convites de Equipe (Ignora cache de JS) -->
   <script>
     (function() {
@@ -199,6 +199,14 @@
               d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 8 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
           </svg>
           Equipe / Perfis
+        </a>
+      </li>
+      <li data-view="office-settings" id="nav-office-settings">
+        <a href="#office-settings">
+          <svg viewBox="0 0 24 24">
+            <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+          </svg>
+          Configurações
         </a>
       </li>
     </ul>
@@ -914,7 +922,265 @@
       </div>
     </section>
 
+    <!-- =========================================================================
+         ABAS: CONFIGURAÇÕES DO ESCRITÓRIO
+         ========================================================================= -->
+    <section class="view-pane" id="view-office-settings">
+      <div style="display: flex; flex-direction: column; gap: 20px;">
+        <div>
+          <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-main); margin: 0;">Configurações do Escritório</h2>
+          <p style="font-size: 0.82rem; color: var(--text-muted); margin: 4px 0 0 0;">Defina as informações institucionais, identidade visual e dados de pagamento para faturamento do seu escritório.</p>
+        </div>
+
+        <form id="officeSettingsForm" onsubmit="event.preventDefault(); saveOfficeSettingsForm();" style="display: flex; flex-direction: column; gap: 24px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;">
+            
+            <!-- Coluna 1: Identidade e Contato -->
+            <div class="chart-card" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+              <h3 style="margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">🏢 Identidade &amp; Contato</h3>
+              
+              <div class="form-group">
+                <label for="settingsOfficeName" class="required">Nome do Escritório</label>
+                <input type="text" id="settingsOfficeName" class="form-control" placeholder="Ex: Rego Júnior Advogados" required>
+              </div>
+
+              <div class="form-group">
+                <label for="settingsResponsibleLawyer" class="required">Advogado Responsável</label>
+                <input type="text" id="settingsResponsibleLawyer" class="form-control" placeholder="Ex: Dr. Francisco Rego" required>
+              </div>
+
+              <div class="form-group row">
+                <div>
+                  <label for="settingsPhone">Telefone</label>
+                  <input type="text" id="settingsPhone" class="form-control" placeholder="(00) 00000-0000">
+                </div>
+                <div>
+                  <label for="settingsEmail">E-mail Comercial</label>
+                  <input type="email" id="settingsEmail" class="form-control" placeholder="contato@escritorio.com">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="settingsAddress">Endereço Completo</label>
+                <input type="text" id="settingsAddress" class="form-control" placeholder="Ex: Av. Paulista, 1000 - São Paulo/SP">
+              </div>
+            </div>
+
+            <!-- Coluna 2: Identidade Visual e Financeiro -->
+            <div style="display: flex; flex-direction: column; gap: 24px;">
+              
+              <!-- Identidade Visual -->
+              <div class="chart-card" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+                <h3 style="margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">🎨 Identidade Visual</h3>
+                
+                <div class="form-group row" style="align-items: center;">
+                  <div>
+                    <label for="settingsPrimaryColor">Cor Primária (Destaque)</label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                      <input type="color" id="settingsPrimaryColor" value="#E84C0B" style="width: 44px; height: 44px; border: none; border-radius: 6px; cursor: pointer; padding: 0;">
+                      <span id="settingsPrimaryColorCode" style="font-size: 0.85rem; font-family: monospace;">#E84C0B</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label for="settingsSecondaryColor">Cor Secundária (Acento)</label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                      <input type="color" id="settingsSecondaryColor" value="#F97316" style="width: 44px; height: 44px; border: none; border-radius: 6px; cursor: pointer; padding: 0;">
+                      <span id="settingsSecondaryColorCode" style="font-size: 0.85rem; font-family: monospace;">#F97316</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="settingsLogo">Logomarca (PNG/JPG)</label>
+                  <input type="file" id="settingsLogo" class="form-control" accept="image/*" style="padding: 4px;">
+                  <div id="settingsLogoPreviewContainer" style="margin-top: 10px; display: none; align-items: center; gap: 10px;">
+                    <img id="settingsLogoPreview" src="" style="max-height: 50px; border-radius: 4px; border: 1px solid var(--border-color);">
+                    <button type="button" class="btn btn-secondary" onclick="removeSettingsLogo()" style="padding: 4px 8px; font-size: 0.75rem; color: var(--danger);">Remover</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Dados de Faturamento -->
+              <div class="chart-card" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+                <h3 style="margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">💵 Dados de Faturamento</h3>
+                
+                <div class="form-group row">
+                  <div>
+                    <label for="settingsBankName">Banco Principal</label>
+                    <input type="text" id="settingsBankName" class="form-control" placeholder="Ex: Banco Cora">
+                  </div>
+                  <div>
+                    <label for="settingsBeneficiaryName">Nome do Beneficiário</label>
+                    <input type="text" id="settingsBeneficiaryName" class="form-control" placeholder="Ex: Rego Júnior Advogados">
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="settingsPixKey">Chave Pix</label>
+                  <input type="text" id="settingsPixKey" class="form-control" placeholder="Ex: CNPJ ou E-mail">
+                </div>
+
+                <div class="form-group">
+                  <label for="settingsPixQR">QR Code Pix (Upload)</label>
+                  <input type="file" id="settingsPixQR" class="form-control" accept="image/*" style="padding: 4px;">
+                  <div id="settingsPixQRPreviewContainer" style="margin-top: 10px; display: none; align-items: center; gap: 10px;">
+                    <img id="settingsPixQRPreview" src="" style="max-height: 60px; border-radius: 4px; border: 1px solid var(--border-color);">
+                    <button type="button" class="btn btn-secondary" onclick="removeSettingsPixQR()" style="padding: 4px 8px; font-size: 0.75rem; color: var(--danger);">Remover</button>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px;">
+            <button type="submit" class="btn btn-primary" style="padding: 10px 24px; font-weight: 700;">💾 Salvar Configurações</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
   </main><!-- /.main-content -->
+
+  <!-- =========================================================================
+       WIZARD DE CONFIGURAÇÃO INICIAL (ONBOARDING)
+       ========================================================================= -->
+  <div class="modal-overlay" id="onboardingWizardOverlay" style="z-index: 2000; background: rgba(17,17,17,0.75); display: none;">
+    <div class="modal" style="max-width: 680px; width: 95%; display: flex; flex-direction: column; min-height: 520px; box-shadow: var(--shadow-2xl);">
+      <div class="modal-header" style="background: var(--bg-sidebar); color: #fff; padding: 22px 28px; border-bottom: none;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <h3 style="color: #fff; font-size: 1.25rem; font-weight: 800; margin: 0; letter-spacing: -0.3px;">⚖️ Bem-vindo ao AdvControl</h3>
+          <p style="font-size: 0.78rem; color: rgba(255,255,255,0.65); margin: 0; font-weight: normal;">Configure o seu escritório em menos de 2 minutos.</p>
+        </div>
+        <!-- Indicador de Etapa -->
+        <span id="onboardingStepIndicator" style="font-size: 0.82rem; font-weight: 800; background: var(--primary-gradient); padding: 4px 10px; border-radius: 12px; color: #fff;">1 / 3</span>
+      </div>
+
+      <!-- Barra de Progresso Superior -->
+      <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.08); position: relative;">
+        <div id="onboardingProgressBar" style="width: 33%; height: 100%; background: var(--primary-gradient); transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+      </div>
+
+      <form id="onboardingWizardForm" onsubmit="event.preventDefault();" style="display: flex; flex-direction: column; flex: 1;">
+        <div class="modal-body" style="padding: 28px; flex: 1; display: flex; flex-direction: column; background: var(--bg-card); gap: 16px;">
+          
+          <!-- ETAPA 1: IDENTIDADE E CONTATO -->
+          <div class="onboarding-step-pane active" id="onboarding-step-1" style="display: flex; flex-direction: column; gap: 16px;">
+            <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--text-dark);">1. Identidade &amp; Contato do Escritório</h4>
+            <p style="margin: 0 0 10px 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">Insira o nome institucional do seu escritório e o contato do advogado responsável.</p>
+            
+            <div class="form-group">
+              <label for="wizardOfficeName" class="required">Nome do Escritório</label>
+              <input type="text" id="wizardOfficeName" class="form-control" placeholder="Ex: Rego Júnior Advogados" required>
+            </div>
+
+            <div class="form-group">
+              <label for="wizardResponsibleLawyer" class="required">Advogado Responsável</label>
+              <input type="text" id="wizardResponsibleLawyer" class="form-control" placeholder="Ex: Dr. Francisco Rego" required>
+            </div>
+
+            <div class="form-group row">
+              <div>
+                <label for="wizardPhone">Telefone de Contato</label>
+                <input type="text" id="wizardPhone" class="form-control" placeholder="(11) 3254-8900">
+              </div>
+              <div>
+                <label for="wizardEmail">E-mail Comercial</label>
+                <input type="email" id="wizardEmail" class="form-control" placeholder="financeiro@regojunior.adv.br">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="wizardAddress">Endereço Completo</label>
+              <input type="text" id="wizardAddress" class="form-control" placeholder="Ex: Av. Paulista, 1200 - Cj. 41 - São Paulo/SP">
+            </div>
+          </div>
+
+          <!-- ETAPA 2: IDENTIDADE VISUAL -->
+          <div class="onboarding-step-pane" id="onboarding-step-2" style="display: none; flex-direction: column; gap: 18px;">
+            <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--text-dark);">2. Cores &amp; Logomarca</h4>
+            <p style="margin: 0 0 8px 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">Defina o tom visual do sistema para combinar com a identidade do seu escritório.</p>
+
+            <div class="form-group row" style="align-items: center; gap: 24px;">
+              <div>
+                <label for="wizardPrimaryColor">Cor de Destaque (Menus, Botões)</label>
+                <div style="display: flex; gap: 10px; align-items: center; margin-top: 4px;">
+                  <input type="color" id="wizardPrimaryColor" value="#E84C0B" style="width: 46px; height: 46px; border: none; border-radius: 6px; cursor: pointer; padding: 0;">
+                  <span id="wizardPrimaryColorCode" style="font-size: 0.85rem; font-family: monospace;">#E84C0B</span>
+                </div>
+              </div>
+              <div>
+                <label for="wizardSecondaryColor">Cor de Acento</label>
+                <div style="display: flex; gap: 10px; align-items: center; margin-top: 4px;">
+                  <input type="color" id="wizardSecondaryColor" value="#F97316" style="width: 46px; height: 46px; border: none; border-radius: 6px; cursor: pointer; padding: 0;">
+                  <span id="wizardSecondaryColorCode" style="font-size: 0.85rem; font-family: monospace;">#F97316</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Paleta Rápida Elegante -->
+            <div class="form-group">
+              <label>Escolha uma paleta corporativa recomendada:</label>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px;">
+                <button type="button" class="btn" style="background: #1e3a8a; color: #fff; font-size: 0.72rem; padding: 6px 10px;" onclick="applyQuickPalette('#1e3a8a', '#3b82f6')">🏛️ Azul Real</button>
+                <button type="button" class="btn" style="background: #0f766e; color: #fff; font-size: 0.72rem; padding: 6px 10px;" onclick="applyQuickPalette('#0f766e', '#14b8a6')">🍃 Verde Esmeralda</button>
+                <button type="button" class="btn" style="background: #E84C0B; color: #fff; font-size: 0.72rem; padding: 6px 10px;" onclick="applyQuickPalette('#E84C0B', '#F97316')">🔥 Laranja AdvControl</button>
+                <button type="button" class="btn" style="background: #6b21a8; color: #fff; font-size: 0.72rem; padding: 6px 10px;" onclick="applyQuickPalette('#6b21a8', '#a855f7')">💎 Roxo Imperial</button>
+                <button type="button" class="btn" style="background: #475569; color: #fff; font-size: 0.72rem; padding: 6px 10px;" onclick="applyQuickPalette('#475569', '#64748b')">🏢 Cinza Executivo</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="wizardLogo">Logomarca do Escritório</label>
+              <input type="file" id="wizardLogo" class="form-control" accept="image/*" style="padding: 4px;">
+              <div id="wizardLogoPreviewContainer" style="margin-top: 10px; display: none; align-items: center; gap: 10px;">
+                <img id="wizardLogoPreview" src="" style="max-height: 48px; border-radius: 4px; border: 1px solid var(--border-color);">
+                <span style="font-size: 0.75rem; color: var(--text-muted);">Carregada!</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ETAPA 3: INFORMAÇÕES FINANCEIRAS -->
+          <div class="onboarding-step-pane" id="onboarding-step-3" style="display: none; flex-direction: column; gap: 16px;">
+            <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--text-dark);">3. Configuração Financeira (Pix / Carnês)</h4>
+            <p style="margin: 0 0 10px 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">Defina as credenciais de pagamento para faturamento do seu escritório nos carnês.</p>
+
+            <div class="form-group row">
+              <div>
+                <label for="wizardBankName" class="required">Banco Principal</label>
+                <input type="text" id="wizardBankName" class="form-control" placeholder="Ex: Banco Cora" required>
+              </div>
+              <div>
+                <label for="wizardBeneficiaryName" class="required">Beneficiário</label>
+                <input type="text" id="wizardBeneficiaryName" class="form-control" placeholder="Ex: Rego Júnior Advogados" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="wizardPixKey" class="required">Chave Pix</label>
+              <input type="text" id="wizardPixKey" class="form-control" placeholder="Ex: CNPJ ou E-mail corporativo" required>
+            </div>
+
+            <div class="form-group">
+              <label for="wizardPixQR">QR Code do Pix (Upload)</label>
+              <input type="file" id="wizardPixQR" class="form-control" accept="image/*" style="padding: 4px;">
+              <div id="wizardPixQRPreviewContainer" style="margin-top: 10px; display: none; align-items: center; gap: 10px;">
+                <img id="wizardPixQRPreview" src="" style="max-height: 60px; border-radius: 4px; border: 1px solid var(--border-color);">
+                <span style="font-size: 0.75rem; color: var(--text-muted);">QR Code carregado!</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Rodapé do Wizard -->
+        <div class="modal-header" style="border-top: 1px solid var(--border-color); border-bottom: none; background: #fafafa; padding: 18px 28px; display: flex; justify-content: space-between;">
+          <button type="button" class="btn btn-secondary" id="btnOnboardingPrev" style="visibility: hidden; font-weight: 700;" onclick="changeOnboardingStep(-1)">◀ Voltar</button>
+          <button type="button" class="btn btn-primary" id="btnOnboardingNext" style="font-weight: 700; padding: 10px 22px;" onclick="handleOnboardingNext()">Avançar ▶</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- =========================================================================
        MODAL: CLIENTE (NOVO / EDIÇÃO)
@@ -1500,8 +1766,8 @@
 
   <!-- Scripts do App -->
   <script src="libs/qrcode.min.js"></script>
-  <script src="supabase-client.js?v=1.8.0"></script>
-  <script src="app.js?v=1.8.0"></script>
+  <script src="supabase-client.js?v=1.9.0"></script>
+  <script src="app.js?v=1.9.0"></script>
 </body>
 
 </html>
