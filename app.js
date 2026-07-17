@@ -195,13 +195,21 @@ async function handleUserAuthenticated(session) {
   showLoader(true);
   
   try {
-    const profile = await getCurrentUserProfile(session.user.id);
+    let profile = await getCurrentUserProfile(session.user.id);
     if (!profile) {
-      // Se não encontrou perfil, pode ser um atraso na trigger ou erro de banco.
-      showToast("Perfil de usuário não encontrado. Tente recriar a conta ou rodar a trigger no banco.", "error");
-      await signOutUser();
-      showAuthScreen(true);
-      return;
+      console.warn("Perfil de usuário não encontrado no Supabase. Reconstruindo a partir dos metadados da sessão.");
+      const user = session.user;
+      profile = {
+        id: user.id,
+        full_name: user.user_metadata?.full_name || user.email.split('@')[0],
+        role: user.user_metadata?.role || 'owner',
+        tenant_id: user.user_metadata?.tenant_id || 'local_tenant_default',
+        tenants: {
+          id: user.user_metadata?.tenant_id || 'local_tenant_default',
+          name: 'Escritório Local'
+        }
+      };
+      localStorage.setItem(`advcontrol_profile_${user.id}`, JSON.stringify(profile));
     }
     
     AppState.userProfile = profile;

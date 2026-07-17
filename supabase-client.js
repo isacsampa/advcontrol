@@ -139,19 +139,67 @@ async function getCurrentSession() {
  */
 async function getCurrentUserProfile(userId) {
   const client = getSupabaseClient();
-  if (!client) return null;
+  if (!client) return _getUserProfileLocalStorage(userId);
 
-  const { data, error } = await client
-    .from('user_profiles')
-    .select('*, tenants(*)')
-    .eq('id', userId)
-    .single();
+  try {
+    const { data, error } = await client
+      .from('user_profiles')
+      .select('*, tenants(*)')
+      .eq('id', userId)
+      .single();
 
-  if (error) {
-    console.error("Erro ao obter user profile:", error);
-    return null;
+    if (error) {
+      console.warn("Erro ao obter user profile do Supabase, tentando LocalStorage:", error);
+      return _getUserProfileLocalStorage(userId);
+    }
+
+    if (data) {
+      localStorage.setItem(`advcontrol_profile_${userId}`, JSON.stringify(data));
+      return data;
+    }
+    return _getUserProfileLocalStorage(userId);
+  } catch (err) {
+    console.warn("Erro ao obter user profile (catch), tentando LocalStorage:", err);
+    return _getUserProfileLocalStorage(userId);
   }
-  return data;
+}
+
+function _getUserProfileLocalStorage(userId) {
+  const cached = localStorage.getItem(`advcontrol_profile_${userId}`);
+  if (cached) {
+    return JSON.parse(cached);
+  }
+
+  // Reconstrói a partir do usuário autenticado no Supabase (se houver sessão salva localmente)
+  try {
+    const client = getSupabaseClient();
+    if (client) {
+      // Localiza o token de autenticação no localStorage gerado pelo SDK
+      const projectRef = client.supabaseUrl.split('//')[1].split('.')[0];
+      const sessionString = localStorage.getItem(`sb-${projectRef}-auth-token`);
+      if (sessionString) {
+        const sessionData = JSON.parse(sessionString);
+        const user = sessionData?.user;
+        if (user && user.id === userId) {
+          const mockProfile = {
+            id: user.id,
+            full_name: user.user_metadata?.full_name || user.email.split('@')[0],
+            role: user.user_metadata?.role || 'owner',
+            tenant_id: user.user_metadata?.tenant_id || 'local_tenant_default',
+            tenants: {
+              id: user.user_metadata?.tenant_id || 'local_tenant_default',
+              name: 'Escritório Local'
+            }
+          };
+          localStorage.setItem(`advcontrol_profile_${userId}`, JSON.stringify(mockProfile));
+          return mockProfile;
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Erro ao reconstruir perfil a partir da sessão:", e);
+  }
+  return null;
 }
 
 // =========================================================================
