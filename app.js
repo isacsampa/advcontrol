@@ -129,13 +129,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!client) { showAuthScreen(true); updateConnectionStatus(false); return; }
 
     updateConnectionStatus(true);
-    const session = await getCurrentSession();
+    let session = await getCurrentSession();
+
+    if (!session) {
+      const cached = localStorage.getItem('advcontrol_session_cache');
+      if (cached) {
+        try {
+          session = JSON.parse(cached);
+          console.log("Sessão obtida com sucesso do cache local resiliente.");
+        } catch (e) {
+          console.error("Erro ao ler cache de sessão:", e);
+        }
+      }
+    } else {
+      localStorage.setItem('advcontrol_session_cache', JSON.stringify(session));
+    }
 
     if (session && _inviteTenantId) {
       // Usuário já logado abrindo link de convite → desloga e mostra cadastro
       await signOutUser();
       AppState.session = null;
       AppState.userProfile = null;
+      localStorage.removeItem('advcontrol_session_cache');
       showAuthScreen(true);
       _showInviteRegisterForm();
     } else if (session) {
@@ -301,6 +316,7 @@ function initNavigation() {
       await signOutUser();
       AppState.session = null;
       AppState.userProfile = null;
+      localStorage.removeItem('advcontrol_session_cache');
       showToast("Sessão encerrada com sucesso.", "success");
       showAuthScreen(true);
     } catch (err) {
@@ -1868,6 +1884,9 @@ function initFormEventListeners() {
     try {
       const data = await signInUser(email, password);
       showToast("Conexão estabelecida com sucesso!", "success");
+      if (data && data.session) {
+        localStorage.setItem('advcontrol_session_cache', JSON.stringify(data.session));
+      }
       await handleUserAuthenticated(data.session);
     } catch (err) {
       showToast("Falha no login: " + err.message, "error");
@@ -1901,6 +1920,7 @@ function initFormEventListeners() {
       // Tenta auto-login se o Supabase retornou sessão (confirmação de email desativada)
       if (result && result.session) {
         showToast('Cadastro realizado! Entrando automaticamente...', 'success');
+        localStorage.setItem('advcontrol_session_cache', JSON.stringify(result.session));
         await handleUserAuthenticated(result.session);
       } else {
         // Confirmação de email ativa — pede para o usuário verificar email
