@@ -727,6 +727,37 @@ tr:hover td { background: #FAFAF8; }
     width: 32px;
     height: 32px;
   }
+
+  /* Celulares muito pequenos (abaixo de 480px) */
+  @media (max-width: 480px) {
+    .metrics-grid {
+      grid-template-columns: 1fr !important;
+      gap: 10px !important;
+    }
+    
+    .metric-card {
+      padding: 14px 16px !important;
+    }
+
+    .metric-value {
+      font-size: 1.4rem !important;
+    }
+
+    .header-actions {
+      flex-grow: 1;
+      justify-content: flex-end;
+    }
+
+    .global-search-wrapper {
+      display: none; /* Oculta busca global no header para sobrar espaço no celular */
+    }
+  }
+
+  /* Prevenção de quebra de valores monetários e status nas tabelas */
+  .table-responsive table td,
+  .table-responsive table th {
+    white-space: nowrap !important;
+  }
 }
 
 .search-result-item {

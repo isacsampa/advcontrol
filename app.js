@@ -315,6 +315,14 @@ function switchTab(tabId) {
 
   AppState.activeTab = tabId;
   
+  // No celular, fecha o menu lateral automaticamente ao selecionar uma aba
+  if (window.innerWidth <= 768) {
+    const sidebar = document.querySelector('.sidebar');
+    const backdrop = document.querySelector('.sidebar-backdrop');
+    if (sidebar) sidebar.classList.remove('active');
+    if (backdrop) backdrop.classList.remove('active');
+  }
+  
   // Atualiza classe active nos links laterais
   const navItems = document.querySelectorAll('.nav-links li[data-view]');
   navItems.forEach(item => {
