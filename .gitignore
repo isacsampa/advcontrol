@@ -1,0 +1,5 @@
+.vercel
+node_modules/
+.env
+*.log
+logo_base64.txt

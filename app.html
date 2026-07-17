@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AdvControl | Gestão Jurídica Inteligente</title>
+  <meta name="description" content="AdvControl — Sistema SaaS de gestão completa para escritórios de advocacia. Fluxo de caixa, clientes, processos e timesheets em um só lugar.">
+
+  <!-- Estilos e Fontes -->
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- Supabase JS Client v2 (local) -->
+  <script src="libs/supabase.min.js"></script>
+
+  <!-- Chart.js para Gráficos Dinâmicos (local) -->
+  <script src="libs/chart.min.js"></script>
+  <!-- Logo JR embutida (carrega automaticamente nos boletos) -->
+  <script src="logo-jr.js"></script>
+</head>
+
+<body>
+
+  <!-- =========================================================================
+       RECIPIENTE DE NOTIFICAÇÕES (Toasts)
+       ========================================================================= -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- =========================================================================
+       TELA DE AUTENTICAÇÃO (Login / Cadastro)
+       ========================================================================= -->
+  <div class="auth-container active" id="authContainer">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="logo-icon">⚖</div>
+        <div class="logo-text">Adv<span>Control</span></div>
+      </div>
+
+      <!-- Formulário de Login -->
+      <div id="loginFormSection">
+        <h2>Acesse sua conta</h2>
+        <p>Insira suas credenciais para entrar no painel financeiro.</p>
+        <form class="auth-form" id="loginForm">
+          <div class="form-group">
+            <label for="loginEmail" class="required">E-mail</label>
+            <input type="email" id="loginEmail" class="form-control" placeholder="exemplo@escritorio.com" required>
+          </div>
+          <div class="form-group">
+            <label for="loginPassword" class="required">Senha</label>
+            <input type="password" id="loginPassword" class="form-control" placeholder="••••••••" required>
+          </div>
+          <button type="submit" class="btn btn-primary"
+            style="width: 100%; justify-content: center; margin-top: 10px;">Entrar</button>
+        </form>
+        <div class="auth-switch">
+          Não tem conta? <a href="#" id="btnSwitchToRegister">Criar conta gratuita</a>
+        </div>
+      </div>
+
+      <!-- Formulário de Registro -->
+      <div id="registerFormSection" style="display: none;">
+        <h2>Crie sua conta</h2>
+        <p>Crie um novo Tenant (escritório) e seu perfil de administrador.</p>
+        <form class="auth-form" id="registerForm">
+          <div class="form-group">
+            <label for="registerName" class="required">Nome Completo</label>
+            <input type="text" id="registerName" class="form-control" placeholder="Dr. Nome Sobrenome" required>
+          </div>
+          <div class="form-group">
+            <label for="registerEmail" class="required">E-mail Corporativo</label>
+            <input type="email" id="registerEmail" class="form-control" placeholder="advogado@escritorio.com" required>
+          </div>
+          <div class="form-group">
+            <label for="registerPassword" class="required">Senha (min. 6 caracteres)</label>
+            <input type="password" id="registerPassword" class="form-control" placeholder="••••••••" minlength="6"
+              required>
+          </div>
+          <button type="submit" class="btn btn-primary"
+            style="width: 100%; justify-content: center; margin-top: 10px;">Cadastrar</button>
+        </form>
+        <div class="auth-switch">
+          Já tem conta? <a href="#" id="btnSwitchToLogin">Fazer Login</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       SIDEBAR (MENU LATERAL)
+       ========================================================================= -->
+  <aside class="sidebar" id="sidebarContainer">
+    <div class="logo-container">
+      <div class="logo-icon">⚖</div>
+      <span class="logo-text">Adv<span>Control</span></span>
+    </div>
+
+    <ul class="nav-links">
+      <li class="nav-category">Geral</li>
+      <li class="active" data-view="dashboard">
+        <a href="#dashboard">
+          <svg viewBox="0 0 24 24">
+            <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" />
+          </svg>
+          Dashboard
+        </a>
+      </li>
+      <li data-view="onboarding">
+        <a href="#onboarding">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+          </svg>
+          Primeiros Passos
+        </a>
+      </li>
+
+      <li class="nav-category">Atendimento</li>
+      <li data-view="clients">
+        <a href="#clients">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+          </svg>
+          Clientes
+        </a>
+      </li>
+
+      <li class="nav-category">Jurídico</li>
+      <li data-view="cases">
+        <a href="#cases">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+          </svg>
+          Casos &amp; Processos
+        </a>
+      </li>
+      <li data-view="organization">
+        <a href="#organization">
+          <svg viewBox="0 0 24 24">
+            <path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+          </svg>
+          Organização &amp; Fluxos
+        </a>
+      </li>
+
+      <li class="nav-category">Finanças &amp; Gestão</li>
+      <li data-view="transactions">
+        <a href="#transactions">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z" />
+          </svg>
+          Lançamentos
+        </a>
+      </li>
+      <li data-view="billing-generator">
+        <a href="#billing-generator">
+          <svg viewBox="0 0 24 24">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+          </svg>
+          Carnê de Pagamento
+        </a>
+      </li>
+      <li data-view="members">
+        <a href="#members">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 8 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
+          </svg>
+          Equipe / Perfis
+        </a>
+      </li>
+    </ul>
+
+
+    <div class="sidebar-footer">
+      <div class="user-info-sidebar">
+        <div class="user-avatar" id="sidebarUserAvatar">U</div>
+        <div class="user-details">
+          <div class="user-name" id="sidebarUserName">Carregando...</div>
+          <div class="user-role-badge" id="sidebarUserRole">Sócio</div>
+        </div>
+      </div>
+      <button class="btn-logout" id="btnLogout">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+        </svg>
+        Sair
+      </button>
+    </div>
+  </aside>
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+  <!-- =========================================================================
+       MAIN AREA (CONTEÚDO DAS ABAS)
+       ========================================================================= -->
+  <main class="main-content">
+    <header>
+      <button class="btn-icon mobile-menu-btn" id="mobileMenuBtn" aria-label="Abrir menu">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
+      <div class="header-title">
+        <h1 id="viewTitle">Dashboard</h1>
+        <p id="viewSubtitle">Visão contábil e conciliação do escritório.</p>
+      </div>
+      <div class="header-actions">
+        <div class="global-search-wrapper" style="position: relative;">
+          <input type="text" id="globalSearchInput" class="form-control" placeholder="Busca rápida (clientes, casos)..." oninput="handleGlobalSearch()" style="width: 250px; padding-left: 32px; font-size: 0.8rem; height: 34px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: var(--text-muted);"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35"></path></svg>
+          <div id="globalSearchResults" style="display: none; position: absolute; top: 100%; right: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); box-shadow: var(--shadow-lg); z-index: 1000; max-height: 280px; overflow-y: auto; margin-top: 5px; width: 300px;">
+          </div>
+        </div>
+        <div class="supabase-status">
+          <div class="status-dot" id="supabaseStatusDot"></div>
+          <span id="supabaseStatusText">Supabase Desconectado</span>
+        </div>
+      </div>
+    </header>
+
+
+    <!-- =========================================================================
+         ABAS: DASHBOARD
+         ========================================================================= -->
+    <section class="view-pane active" id="view-dashboard">
+      <!-- Grid de Indicadores -->
+      <div class="metrics-grid">
+        <div class="metric-card operational">
+          <div class="metric-header">
+            <span>CAIXA OPERACIONAL</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
+          </div>
+          <div class="metric-value" id="valCashOperational">R$ 0,00</div>
+          <div class="metric-description">Saldo das contas operacionais do escritório</div>
+        </div>
+
+        <div class="metric-card third-party">
+          <div class="metric-header">
+            <span>CAIXA TRANSITÓRIO (TERCEIROS)</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path
+                d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          </div>
+          <div class="metric-value" id="valCashThirdParty">R$ 0,00</div>
+          <div class="metric-description">Fundos vinculados a processos específicos</div>
+        </div>
+
+        <div class="metric-card revenue">
+          <div class="metric-header">
+            <span>RECEITA TOTAL (MÊS)</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 19V5M5 12l7-7 7 7" />
+            </svg>
+          </div>
+          <div class="metric-value" id="valTotalRevenue">R$ 0,00</div>
+          <div class="metric-description">Lançamentos pagos no período atual</div>
+        </div>
+
+        <div class="metric-card expense">
+          <div class="metric-header">
+            <span>DESPESA TOTAL (MÊS)</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 5v14M5 12l7 7 7-7" />
+            </svg>
+          </div>
+          <div class="metric-value" id="valTotalExpenses">R$ 0,00</div>
+          <div class="metric-description">Despesas consolidadas pagas</div>
+        </div>
+      </div>
+
+      <!-- Gráficos -->
+      <div class="dashboard-row">
+        <div class="chart-card">
+          <h2>Fluxo de Caixa (Mensal)</h2>
+          <div class="chart-container">
+            <canvas id="flowChart"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <h2>Distribuição de Caixa</h2>
+          <div class="chart-container">
+            <canvas id="distChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         ABAS: PRIMEIROS PASSOS (ONBOARDING)
+         ========================================================================= -->
+    <section class="view-pane" id="view-onboarding">
+      <div class="table-card" style="padding: 30px; max-width: 800px; margin: 0 auto;">
+        <h2 style="font-size: 1.6rem; font-weight: 800; color: var(--primary); margin-bottom: 8px; letter-spacing: -0.5px;">Bem-vindo ao AdvControl! ⚖️</h2>
+        <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 24px; line-height: 1.6;">
+          Preparamos este guia rápido para ajudar você a configurar o escritório e começar a organizar sua gestão.
+          Siga os passos interativos abaixo. O sistema identificará automaticamente as etapas que você já completou!
+        </p>
+
+        <div class="onboarding-steps" style="display: flex; flex-direction: column; gap: 16px;">
+          <!-- Passo 1 -->
+          <div class="onboarding-step-card" id="step-office" style="background: #FAFAF8; border: 1.5px solid var(--border-color); border-radius: var(--radius); padding: 18px 22px; display: flex; gap: 16px; align-items: flex-start; transition: var(--transition);">
+            <div class="step-check-icon" id="icon-step-office" style="font-size: 1.4rem; color: var(--text-muted);">⬜</div>
+            <div style="flex-grow: 1;">
+              <h3 style="font-size: 0.95rem; font-weight: 800; margin-bottom: 4px; color: var(--text-main);">1. Configurar sua conta de proprietário</h3>
+              <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;">Informação de perfil ativada após o registro. Conectado ao banco de dados Supabase.</p>
+            </div>
+            <span class="badge badge-pago" style="background: var(--success-light); color: var(--success);">Concluído</span>
+          </div>
+
+          <!-- Passo 2 -->
+          <div class="onboarding-step-card" id="step-client" style="background: #FAFAF8; border: 1.5px solid var(--border-color); border-radius: var(--radius); padding: 18px 22px; display: flex; gap: 16px; align-items: flex-start; transition: var(--transition); cursor: pointer;" onclick="switchTab('clients')">
+            <div class="step-check-icon" id="icon-step-client" style="font-size: 1.4rem; color: var(--text-muted);">⬜</div>
+            <div style="flex-grow: 1;">
+              <h3 style="font-size: 0.95rem; font-weight: 800; margin-bottom: 4px; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                2. Cadastrar seu primeiro Cliente
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--primary);"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </h3>
+              <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;">Adicione clientes para gerenciar dados cadastrais e checklists de documentação.</p>
+            </div>
+            <span class="badge badge-operacional" id="badge-step-client" style="background: var(--border-color); color: var(--text-muted);">Pendente</span>
+          </div>
+
+          <!-- Passo 3 -->
+          <div class="onboarding-step-card" id="step-case" style="background: #FAFAF8; border: 1.5px solid var(--border-color); border-radius: var(--radius); padding: 18px 22px; display: flex; gap: 16px; align-items: flex-start; transition: var(--transition); cursor: pointer;" onclick="switchTab('cases')">
+            <div class="step-check-icon" id="icon-step-case" style="font-size: 1.4rem; color: var(--text-muted);">⬜</div>
+            <div style="flex-grow: 1;">
+              <h3 style="font-size: 0.95rem; font-weight: 800; margin-bottom: 4px; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                3. Cadastrar um Processo / Caso
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--primary);"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </h3>
+              <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;">Crie um processo para seu cliente, configurando regras de rateio de honorários.</p>
+            </div>
+            <span class="badge badge-operacional" id="badge-step-case" style="background: var(--border-color); color: var(--text-muted);">Pendente</span>
+          </div>
+
+          <!-- Passo 4 -->
+          <div class="onboarding-step-card" id="step-tx" style="background: #FAFAF8; border: 1.5px solid var(--border-color); border-radius: var(--radius); padding: 18px 22px; display: flex; gap: 16px; align-items: flex-start; transition: var(--transition); cursor: pointer;" onclick="switchTab('transactions')">
+            <div class="step-check-icon" id="icon-step-tx" style="font-size: 1.4rem; color: var(--text-muted);">⬜</div>
+            <div style="flex-grow: 1;">
+              <h3 style="font-size: 0.95rem; font-weight: 800; margin-bottom: 4px; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                4. Registrar a primeira Movimentação Financeira
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--primary);"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </h3>
+              <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;">Gere receitas de honorários ou despesas para preencher o dashboard financeiro.</p>
+            </div>
+            <span class="badge badge-operacional" id="badge-step-tx" style="background: var(--border-color); color: var(--text-muted);">Pendente</span>
+          </div>
+
+          <!-- Passo 5 -->
+          <div class="onboarding-step-card" id="step-member" style="background: #FAFAF8; border: 1.5px solid var(--border-color); border-radius: var(--radius); padding: 18px 22px; display: flex; gap: 16px; align-items: flex-start; transition: var(--transition); cursor: pointer;" onclick="switchTab('members')">
+            <div class="step-check-icon" id="icon-step-member" style="font-size: 1.4rem; color: var(--text-muted);">⬜</div>
+            <div style="flex-grow: 1;">
+              <h3 style="font-size: 0.95rem; font-weight: 800; margin-bottom: 4px; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                5. Convidar Sócios ou Colaboradores
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--primary);"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </h3>
+              <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;">Cadastre novos sócios ou perfis financeiros para trabalharem no escritório.</p>
+            </div>
+            <span class="badge badge-operacional" id="badge-step-member" style="background: var(--border-color); color: var(--text-muted);">Pendente</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- =========================================================================
+         ABAS: TRANSAÇÕES (LANÇAMENTOS)
+         ========================================================================= -->
+    <section class="view-pane" id="view-transactions">
+      <div class="action-bar">
+        <div class="filters-wrapper">
+          <div class="search-input-container">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8" />
+              <path d="M21 21l-4.35-4.35" />
+            </svg>
+            <input type="text" id="searchTransaction" class="form-control" placeholder="Buscar lançamento...">
+          </div>
+
+          <select id="filterCashType" class="form-control">
+            <option value="">Tipo de Caixa (Todos)</option>
+            <option value="operacional">Operacional</option>
+            <option value="transitorio_terceiros">Transitório (Terceiros)</option>
+          </select>
+
+          <select id="filterMovementType" class="form-control">
+            <option value="">Movimentação (Todas)</option>
+            <option value="receita">Receitas</option>
+            <option value="despesa">Despesas</option>
+          </select>
+
+          <select id="filterStatus" class="form-control">
+            <option value="">Status (Todos)</option>
+            <option value="pago">Pago</option>
+            <option value="pendente">Pendente</option>
+            <option value="atrasado">Atrasado</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+        </div>
+
+        <button class="btn btn-primary" id="btnNewTransaction">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          Novo Lançamento
+        </button>
+      </div>
+
+      <div id="transactionsGroupedContainer">
+        <!-- Renderizado dinamicamente em blocos por cliente -->
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         ABAS: CLIENTES
+         ========================================================================= -->
+    <section class="view-pane" id="view-clients">
+      <div class="action-bar">
+        <div class="search-input-container">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8" />
+            <path d="M21 21l-4.35-4.35" />
+          </svg>
+          <input type="text" id="searchClient" class="form-control" placeholder="Buscar cliente...">
+        </div>
+
+        <button class="btn btn-primary" id="btnNewClient">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          Novo Cliente
+        </button>
+      </div>
+
+      <div class="table-card">
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Documento (CPF/CNPJ)</th>
+                <th>E-mail</th>
+                <th>Telefone</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="clientsTableBody">
+              <!-- Dados dinâmicos -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         ABAS: CASOS & PROCESSOS
+         ========================================================================= -->
+    <section class="view-pane" id="view-cases">
+      <div class="action-bar">
+        <div class="search-input-container">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8" />
+            <path d="M21 21l-4.35-4.35" />
+          </svg>
+          <input type="text" id="searchCase" class="form-control" placeholder="Buscar processo/caso...">
+        </div>
+
+        <button class="btn btn-primary" id="btnNewCase">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          Novo Processo
+        </button>
+      </div>
+
+      <div class="table-card">
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Nº Processo</th>
+                <th>Título / Objeto</th>
+                <th>Cliente</th>
+                <th>Adv. Originador</th>
+                <th>Adv. Responsável</th>
+                <th>Status</th>
+                <th>Honorários (Split)</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="casesTableBody">
+              <!-- Dados dinâmicos -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+
+
+    <!-- =========================================================================
+         ABAS: EQUIPE / MEMBROS
+         ========================================================================= -->
+    <section class="view-pane" id="view-members">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-main); margin: 0;">Equipe & Membros</h2>
+          <p style="font-size: 0.82rem; color: var(--text-muted); margin: 4px 0 0 0;">Gerencie os membros do seu escritório ou convide novos funcionários.</p>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary" onclick="copyInviteLink('associate')" style="font-weight: 700; height: 38px;">
+            🔗 Convidar Advogado
+          </button>
+          <button class="btn btn-secondary" onclick="copyInviteLink('financial')" style="font-weight: 700; height: 38px;">
+            🔗 Convidar Financeiro
+          </button>
+        </div>
+      </div>
+      <div class="table-card">
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Nome Completo</th>
+                <th>E-mail</th>
+                <th>Papel (Role)</th>
+                <th>Taxa Horária Padrão</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="membersTableBody">
+              <!-- Dados dinâmicos -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         ABAS: EMISSOR DE CARNÊS
+         ========================================================================= -->
+    <section class="view-pane" id="view-billing-generator">
+      <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 24px; align-items: start;">
+        
+        <!-- Form de Emissão -->
+        <div class="chart-card" style="padding: 20px;">
+          <h2>📑 Emissor de Carnê de Pagamento</h2>
+          <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 20px;">
+            Preencha os dados abaixo para gerar o carnê de pagamento em PDF pronto para impressão.
+          </p>
+
+          <form id="billingGeneratorForm" onsubmit="event.preventDefault(); renderPreview();">
+            <div class="form-group">
+              <label for="bgClientName" class="required">Nome do Cliente (Pagador)</label>
+              <input type="text" id="bgClientName" class="form-control" placeholder="Ex: João Silva de Souza" required>
+            </div>
+
+            <div class="form-group row">
+              <div>
+                <label for="bgTotalValue" class="required">Valor Total Contratado (R$)</label>
+                <input type="number" step="0.01" min="0" id="bgTotalValue" class="form-control" placeholder="0.00" required>
+              </div>
+              <div>
+                <label for="bgInstallments" class="required">Qtd. de Parcelas</label>
+                <input type="number" min="1" max="60" id="bgInstallments" class="form-control" value="12" required>
+              </div>
+            </div>
+
+            <div class="form-group row">
+              <div>
+                <label for="bgInstallmentValue">Valor da Parcela (R$)</label>
+                <input type="number" step="0.01" min="0" id="bgInstallmentValue" class="form-control" placeholder="Calculado automaticamente">
+              </div>
+              <div>
+                <label for="bgFirstDueDate" class="required">1º Vencimento</label>
+                <input type="date" id="bgFirstDueDate" class="form-control" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="bgReference">Descrição / Referência</label>
+              <input type="text" id="bgReference" class="form-control" value="Honorários advocatícios contratados.">
+            </div>
+
+            <div class="form-group row">
+              <div>
+                <label for="bgBeneficiary" class="required">Beneficiário</label>
+                <input type="text" id="bgBeneficiary" class="form-control" placeholder="Ex: Rego Júnior Advogados" required>
+              </div>
+              <div>
+                <label for="bgBank" class="required">Banco / Instituição</label>
+                <input type="text" id="bgBank" class="form-control" placeholder="Ex: Banco do Brasil" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="bgPixKey" class="required">Chave PIX (para QR Code)</label>
+              <input type="text" id="bgPixKey" class="form-control" placeholder="E-mail, CNPJ, Telefone ou Chave Aleatória" required>
+            </div>
+
+            <div class="form-group row">
+              <div>
+                <label for="bgPhone">Telefone de Contato</label>
+                <input type="text" id="bgPhone" class="form-control" placeholder="(00) 00000-0000">
+              </div>
+              <div>
+                <label for="bgLogo">Logomarca (Imagem)</label>
+                <input type="file" id="bgLogo" class="form-control" accept="image/*" style="padding: 4px;">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="bgAddress">Endereço Completo</label>
+              <input type="text" id="bgAddress" class="form-control" placeholder="Ex: Av. Paulista, 1000 - Cj. 50 - São Paulo/SP">
+            </div>
+
+            <div class="form-actions" style="margin-top: 16px;">
+              <button type="button" class="btn btn-secondary" onclick="resetBillingForm()">Limpar</button>
+              <button type="submit" class="btn btn-primary">🔄 Atualizar Pré-visualização</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Coluna da Pré-visualização -->
+        <div style="display: flex; flex-direction: column; gap: 16px; position: sticky; top: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+              👁️ Pré-visualização (A4)
+            </h3>
+            <button type="button" class="btn btn-primary" onclick="printBillingCarne()" style="display: flex; align-items: center; gap: 8px;">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                <rect x="6" y="14" width="12" height="8"></rect>
+              </svg>
+              Imprimir Carnê (PDF)
+            </button>
+          </div>
+
+          <!-- Container do Preview em Escala -->
+          <div id="carnePreviewContainer" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; overflow: auto; max-height: 700px; padding: 20px; box-shadow: inset 0 0 20px rgba(0,0,0,0.35);">
+            <!-- O carnê renderizado aparecerá aqui -->
+            <div style="text-align: center; color: var(--text-muted); padding: 40px;">
+              <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" stroke-width="1.5" fill="none" style="margin-bottom: 12px; color: var(--border-color);"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+              <p>Preencha os campos e clique em <strong>Atualizar Pré-visualização</strong>.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         ABAS: ORGANIZAÇÃO & FLUXOS
+         ========================================================================= -->
+    <section class="view-pane" id="view-organization">
+      <div style="display: flex; flex-direction: column; gap: 20px;">
+        
+        <!-- Seletores de Sub-Abas -->
+        <div style="display: flex; gap: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+          <button class="btn btn-primary btn-org-tab active" data-subtab="org-tasks" onclick="switchOrgSubTab('org-tasks')">📋 Tarefas Internas</button>
+          <button class="btn btn-secondary btn-org-tab" data-subtab="org-flows" onclick="switchOrgSubTab('org-flows')">⚖️ Procedimentos Cível/Criminal</button>
+        </div>
+
+        <!-- 1. Sub-Aba: TAREFAS INTERNAS -->
+        <div id="subtab-org-tasks" class="org-subtab-pane">
+          <div style="display: grid; grid-template-columns: 1fr 1.8fr; gap: 24px; align-items: start;">
+            <!-- Form Adicionar Tarefa -->
+            <div class="chart-card" style="padding: 20px;">
+              <h3>Nova Tarefa</h3>
+              <form id="orgTaskForm" onsubmit="event.preventDefault(); addOrgTask();" style="margin-top: 16px;">
+                <div class="form-group">
+                  <label for="orgTaskActivity" class="required">Atividade / Tarefa</label>
+                  <input type="text" id="orgTaskActivity" class="form-control" placeholder="Ex: Protocolar Petição de Apelação" required>
+                </div>
+                <div class="form-group">
+                  <label for="orgTaskAssignee" class="required">Responsável</label>
+                  <select id="orgTaskAssignee" class="form-control" required>
+                    <option value="">Selecione um membro...</option>
+                    <!-- Preenchido via JS com os advogados da equipe -->
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="orgTaskDeadline" class="required">Prazo de Confecção</label>
+                  <input type="date" id="orgTaskDeadline" class="form-control" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 12px;">➕ Adicionar Tarefa</button>
+              </form>
+            </div>
+            <!-- Lista de Tarefas -->
+            <div class="table-card">
+              <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0;">Lista de Afazeres</h3>
+                <span id="orgTaskCount" class="badge" style="background: var(--primary-light); color: var(--primary);">0 pendentes</span>
+              </div>
+              <div class="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="width: 50px;">Status</th>
+                      <th>Atividade</th>
+                      <th>Responsável</th>
+                      <th>Prazo</th>
+                      <th style="width: 80px; text-align: center;">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="orgTasksTableBody">
+                    <!-- Dinâmico via JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+
+        <!-- 3. Sub-Aba: FLUXOS CÍVEL E CRIMINAL -->
+        <div id="subtab-org-flows" class="org-subtab-pane" style="display: none;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+            
+            <!-- Fluxo Cível -->
+            <div class="chart-card" style="padding: 24px; border-top: 4px solid #b89764;">
+              <h3 style="color: #b89764; font-family: Georgia, serif; display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                🏛️ Procedimento Cível
+              </h3>
+              <p style="color: var(--text-muted); font-size: 0.82rem; margin-bottom: 20px;">
+                Roteiro de documentos e fases para processos na área Cível (Contratos, Consumidor, Família).
+              </p>
+              
+              <h4 style="margin-bottom: 8px; font-size: 0.95rem;">📂 Documentação Específica</h4>
+              <ul style="padding-left: 20px; font-size: 0.85rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 6px; margin-bottom: 24px;">
+                <li>Contratos de prestação de serviço, ordens de compra ou recibos.</li>
+                <li>Notificações extrajudiciais enviadas à outra parte.</li>
+                <li>Prints de conversas no WhatsApp/E-mails provando a tentativa de acordo.</li>
+                <li>Certidões específicas (Nascimento, Casamento - se for Família).</li>
+                <li>Extratos bancários e comprovantes de perdas e danos.</li>
+              </ul>
+              
+              <h4 style="margin-bottom: 8px; font-size: 0.95rem;">📌 Fases do Procedimento Cível</h4>
+              <ol style="padding-left: 20px; font-size: 0.85rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 10px;">
+                <li><strong>Fase Postulatória</strong>: Protocolar a Petição Inicial detalhada e fundamentada com pedidos liminares.</li>
+                <li><strong>Audiência de Conciliação</strong>: Tentativa amigável de acordo mediada pelo Conciliador.</li>
+                <li><strong>Contestação &amp; Réplica</strong>: Prazo do réu para defesa e manifestação subsequente do autor.</li>
+                <li><strong>Saneamento</strong>: O juiz decide sobre provas necessárias (perícia, testemunhas).</li>
+                <li><strong>Instrução e Julgamento (AIJ)</strong>: Depoimento das partes e inquirição de testemunhas indicadas.</li>
+                <li><strong>Sentença e Recursos</strong>: Prolação da sentença do juiz de 1º grau e prazos para Apelação.</li>
+              </ol>
+            </div>
+
+            <!-- Fluxo Criminal -->
+            <div class="chart-card" style="padding: 24px; border-top: 4px solid #b89764;">
+              <h3 style="color: #b89764; font-family: Georgia, serif; display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                ⚖️ Procedimento Criminal
+              </h3>
+              <p style="color: var(--text-muted); font-size: 0.82rem; margin-bottom: 20px;">
+                Roteiro de documentos e fases para a defesa e representação de réus na esfera Criminal.
+              </p>
+              
+              <h4 style="margin-bottom: 8px; font-size: 0.95rem;">📂 Documentação Específica</h4>
+              <ul style="padding-left: 20px; font-size: 0.85rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 6px; margin-bottom: 24px;">
+                <li>Cópia Integral do Inquérito Policial (IP) ou da Denúncia.</li>
+                <li>Boletim de Ocorrência (B.O.) original e relatórios de apreensão.</li>
+                <li>Comprovante de Trabalho Lícito e Carteira de Trabalho.</li>
+                <li>Comprovante de Residência Fixa (fundamental para requerer liberdade provisória).</li>
+                <li>Cartas ou declarações de idoneidade assinadas por amigos/vizinhos.</li>
+              </ul>
+              
+              <h4 style="margin-bottom: 8px; font-size: 0.95rem;">📌 Fases do Procedimento Criminal</h4>
+              <ol style="padding-left: 20px; font-size: 0.85rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 10px;">
+                <li><strong>Fase de Inquérito</strong>: Acompanhamento de depoimentos na delegacia e Habeas Corpus contra prisão preventiva ilegal.</li>
+                <li><strong>Oferecimento da Denúncia</strong>: Ministério Público acusa o réu formalmente perante o juiz.</li>
+                <li><strong>Defesa Prévia / Resposta à Acusação</strong>: Apontar nulidades no flagrante ou na denúncia, arrolar testemunhas e absolvição sumária.</li>
+                <li><strong>Instrução e Julgamento (AIJ)</strong>: Inquirição de testemunhas da acusação, da defesa, e por fim o interrogatório do réu.</li>
+                <li><strong>Alegações Finais por Memoriais</strong>: Peça final defendendo atenuantes, desclassificações ou a inocência.</li>
+                <li><strong>Sentença e Recursos</strong>: Pena fixada pelo juiz e prazos para Apelação ou RESE.</li>
+              </ol>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main><!-- /.main-content -->
+
+  <!-- =========================================================================
+       MODAL: CLIENTE (NOVO / EDIÇÃO)
+       ========================================================================= -->
+  <div class="modal-overlay" id="clientModalOverlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="clientModalTitle">Cadastrar Cliente</h3>
+        <button class="btn-close-modal" id="btnCloseClientModal">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <form id="clientForm">
+        <input type="hidden" id="clientIdInput">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="clientNameInput" class="required">Razão Social / Nome</label>
+            <input type="text" id="clientNameInput" class="form-control"
+              placeholder="Nome Completo ou Nome da Empresa" required>
+          </div>
+          <div class="form-group">
+            <label for="clientDocInput">Documento (CPF / CNPJ)</label>
+            <input type="text" id="clientDocInput" class="form-control"
+              placeholder="000.000.000-00 ou 00.000.000/0000-00">
+          </div>
+          <div class="form-group row">
+            <div>
+              <label for="clientEmailInput">E-mail</label>
+              <input type="email" id="clientEmailInput" class="form-control" placeholder="email@contato.com">
+            </div>
+            <div>
+              <label for="clientPhoneInput">Telefone</label>
+              <input type="tel" id="clientPhoneInput" class="form-control" placeholder="(00) 00000-0000">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="clientActiveInput">Cadastro Ativo?</label>
+            <select id="clientActiveInput" class="form-control">
+              <option value="true">Sim</option>
+              <option value="false">Não</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-header" style="border-top: 1px solid var(--border-color); border-bottom: none;">
+          <div></div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" id="btnCancelClientModal">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Salvar</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: CASO / PROCESSO (NOVO / EDIÇÃO)
+       ========================================================================= -->
+  <div class="modal-overlay" id="caseModalOverlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="caseModalTitle">Novo Processo / Caso</h3>
+        <button class="btn-close-modal" id="btnCloseCaseModal">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <form id="caseForm">
+        <input type="hidden" id="caseIdInput">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="caseClientSelect" class="required">Cliente Relacionado</label>
+            <select id="caseClientSelect" class="form-control" required>
+              <!-- Dinâmico -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="caseTitleInput" class="required">Título / Objeto do Caso</label>
+            <input type="text" id="caseTitleInput" class="form-control"
+              placeholder="Ação Revisional, Contrato X, etc." required>
+          </div>
+          <div class="form-group">
+            <label for="caseNumberInput">Número do Processo (CNJ)</label>
+            <input type="text" id="caseNumberInput" class="form-control" placeholder="0000000-00.0000.0.00.0000">
+          </div>
+          <div class="form-group row">
+            <div>
+              <label for="caseOriginatingSelect">Sócio Originador</label>
+              <select id="caseOriginatingSelect" class="form-control">
+                <!-- Dinâmico -->
+              </select>
+            </div>
+            <div>
+              <label for="caseResponsibleSelect">Responsável Técnico</label>
+              <select id="caseResponsibleSelect" class="form-control">
+                <!-- Dinâmico -->
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="caseStatusSelect">Status do Processo</label>
+            <select id="caseStatusSelect" class="form-control">
+              <option value="ativo">Ativo</option>
+              <option value="suspenso">Suspenso</option>
+              <option value="encerrado">Encerrado</option>
+              <option value="arquivado">Arquivado</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-header" style="border-top: 1px solid var(--border-color); border-bottom: none;">
+          <div></div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" id="btnCancelCaseModal">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Salvar</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: LANÇAMENTO / TRANSAÇÃO (NOVO / EDIÇÃO)
+       ========================================================================= -->
+  <div class="modal-overlay" id="transModalOverlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="transModalTitle">Cadastrar Lançamento</h3>
+        <button class="btn-close-modal" id="btnCloseTransModal">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <form id="transForm">
+        <input type="hidden" id="transIdInput">
+        <div class="modal-body">
+          <div class="form-group row">
+            <div>
+              <label for="transCashTypeSelect" class="required">Origem do Caixa</label>
+              <select id="transCashTypeSelect" class="form-control" required>
+                <option value="operacional">Operacional (Faturamento/Contas)</option>
+                <option value="transitorio_terceiros">Transitório de Terceiros (Custas/Acordos)</option>
+              </select>
+            </div>
+            <div>
+              <label for="transMovementSelect" class="required">Movimentação</label>
+              <select id="transMovementSelect" class="form-control" required>
+                <option value="receita">Receita (Entrada)</option>
+                <option value="despesa">Despesa (Saída)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group row">
+            <div>
+              <label for="transCategorySelect" class="required">Categoria</label>
+              <select id="transCategorySelect" class="form-control" required>
+                <option value="honorario_recorrente">Honorários Recorrentes</option>
+                <option value="honorario_exito">Honorários de Êxito</option>
+                <option value="custa_judicial">Custas Judiciais</option>
+                <option value="reembolso">Reembolso de Despesas</option>
+                <option value="despesa_administrativa">Despesas Administrativas</option>
+                <option value="imposto">Impostos e Taxas</option>
+              </select>
+            </div>
+            <div>
+              <label for="transStatusSelect" class="required">Status do Lançamento</label>
+              <select id="transStatusSelect" class="form-control" required>
+                <option value="pendente">Pendente</option>
+                <option value="pago">Efetuado / Pago</option>
+                <option value="atrasado">Atrasado</option>
+                <option value="cancelado">Cancelado</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group row">
+            <div>
+              <label for="transAmountInput" class="required">Valor Bruto (R$)</label>
+              <input type="number" step="0.01" min="0.01" id="transAmountInput" class="form-control"
+                placeholder="0,00" required>
+            </div>
+            <div>
+              <label for="transTaxInput">Imposto Retido (R$)</label>
+              <input type="number" step="0.01" min="0" id="transTaxInput" class="form-control" value="0.00">
+            </div>
+          </div>
+
+          <div class="form-group row">
+            <div>
+              <label for="transDueDateInput" class="required">Data de Vencimento</label>
+              <input type="date" id="transDueDateInput" class="form-control" required>
+            </div>
+            <div>
+              <label for="transPaidAtInput">Data do Pagamento</label>
+              <input type="datetime-local" id="transPaidAtInput" class="form-control">
+            </div>
+          </div>
+
+          <!-- Linha de Parcelamento e Forma de Pagamento -->
+          <div class="form-group row" id="transInstallmentsRow">
+            <div>
+              <label for="transPaymentMethodSelect">Forma de Pagamento</label>
+              <select id="transPaymentMethodSelect" class="form-control">
+                <option value="Pix">Pix</option>
+                <option value="Boleto">Boleto Bancário</option>
+                <option value="Cartão de Crédito">Cartão de Crédito</option>
+                <option value="Transferência">Transferência (TED/DOC)</option>
+                <option value="Dinheiro">Dinheiro</option>
+                <option value="Cheque">Cheque</option>
+                <option value="Débito Automático">Débito Automático</option>
+              </select>
+            </div>
+            <div>
+              <label for="transInstallmentsInput">Parcelas</label>
+              <input type="number" min="1" max="72" id="transInstallmentsInput" class="form-control" value="1">
+            </div>
+          </div>
+
+          <!-- Campos Condicionais Relacionados -->
+          <div class="form-group">
+            <label for="transClientSelect">Cliente Relacionado</label>
+            <select id="transClientSelect" class="form-control">
+              <option value="">Nenhum Cliente</option>
+              <!-- Dinâmico -->
+            </select>
+          </div>
+
+          <div class="form-group" id="transCaseGroup">
+            <label for="transCaseSelect" id="transCaseLabel">Caso / Processo Relacionado</label>
+            <select id="transCaseSelect" class="form-control">
+              <option value="">Nenhum Caso</option>
+              <!-- Dinâmico -->
+            </select>
+            <p style="color: var(--danger); font-size: 0.75rem; margin-top: 4px; display: none;"
+              id="transCaseAlert">
+              ⚠️ Para fundos de terceiros, vincular a um Caso/Processo é obrigatório!
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label for="transDescInput">Observações / Detalhes</label>
+            <textarea id="transDescInput" class="form-control" placeholder="Detalhe o lançamento..."
+              rows="3"></textarea>
+          </div>
+        </div>
+        <div class="modal-header" style="border-top: 1px solid var(--border-color); border-bottom: none;">
+          <div></div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" id="btnCancelTransModal">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Salvar Lançamento</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+
+  <!-- =========================================================================
+       MODAL: REGRAS DE RATEIO / SPLIT RULES (EDIÇÃO)
+       ========================================================================= -->
+  <div class="modal-overlay" id="splitModalOverlay">
+    <div class="modal" style="max-width: 650px;">
+      <div class="modal-header">
+        <div>
+          <h3>Divisão de Honorários (Splits)</h3>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;" id="splitModalSubtitle">
+            Processo: ...</p>
+        </div>
+        <button class="btn-close-modal" id="btnCloseSplitModal">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+
+        <div class="split-summary-card">
+          <div style="display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 600;">
+            <span>Soma dos Rateios</span>
+            <span id="splitTotalLabel">0.00% / 100.00%</span>
+          </div>
+          <div class="split-progress-bar">
+            <div class="split-progress-fill" id="splitProgressBarFill" style="width: 0%"></div>
+          </div>
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px;" id="splitFeedbackText">
+            Adicione advogados e configure a porcentagem de divisão.
+          </p>
+        </div>
+
+        <div id="splitRulesRowsContainer">
+          <!-- Linhas de rateio inseridas dinamicamente -->
+        </div>
+
+        <button class="btn btn-secondary" id="btnAddSplitRuleRow"
+          style="width: 100%; justify-content: center; margin-top: 12px;">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          Adicionar Participante
+        </button>
+
+      </div>
+      <div class="modal-header" style="border-top: 1px solid var(--border-color); border-bottom: none;">
+        <div></div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" id="btnCancelSplitModal">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="btnSaveSplitRules">Salvar Divisões</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: EDITAR MEMBRO DA EQUIPE
+       ========================================================================= -->
+  <div class="modal-overlay" id="memberModalOverlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Editar Membro da Equipe</h3>
+        <button class="btn-close-modal" id="btnCloseMemberModal">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <form id="memberForm">
+        <input type="hidden" id="memberIdInput">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Nome do Colaborador</label>
+            <input type="text" id="memberNameInput" class="form-control" disabled>
+          </div>
+          <div class="form-group">
+            <label for="memberRoleSelect" class="required">Papel de Acesso (Role)</label>
+            <select id="memberRoleSelect" class="form-control" required>
+              <option value="owner">Owner (Administrador / Dono)</option>
+              <option value="partner">Partner (Sócio)</option>
+              <option value="associate">Associate (Associado)</option>
+              <option value="financial">Financial (Financeiro)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="memberHourlyRateInput">Taxa Horária Padrão (R$)</label>
+            <input type="number" step="0.01" min="0" id="memberHourlyRateInput" class="form-control"
+              placeholder="0,00">
+          </div>
+          <div class="form-group">
+            <label for="memberActiveSelect">Colaborador Ativo?</label>
+            <select id="memberActiveSelect" class="form-control">
+              <option value="true">Sim</option>
+              <option value="false">Não</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-header" style="border-top: 1px solid var(--border-color); border-bottom: none;">
+          <div></div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" id="btnCancelMemberModal">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Salvar</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: CHECKLIST DE DOCUMENTOS DO CLIENTE
+       ========================================================================= -->
+  <div class="modal-overlay" id="clientDocModalOverlay">
+    <div class="modal" style="max-width: 500px;">
+      <div class="modal-header">
+        <div>
+          <h3 id="clientDocModalTitle">Documentação do Cliente</h3>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Gerencie a entrega dos documentos obrigatórios.</p>
+        </div>
+        <button class="btn-close-modal" id="btnCloseClientDocModal">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      <div class="modal-body" style="padding-top: 10px;">
+        <input type="hidden" id="clientDocModalClientId">
+        
+        <div id="docAILoader" style="display: none; background: rgba(232, 76, 11, 0.05); border: 1px dashed var(--primary); border-radius: 6px; padding: 10px 14px; margin-top: 10px; text-align: center;">
+          <span style="font-size: 0.8rem; font-weight: 700; color: var(--primary); display: inline-flex; align-items: center; gap: 8px;">
+            <span class="status-dot connected" style="width: 10px; height: 10px; float: none;"></span>
+            🤖 Doutor IA analisando documento... extraindo dados cadastrais...
+          </span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 16px;">
+          <!-- Identidade -->
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+            <label style="display: flex; align-items: center; gap: 12px; font-size: 0.95rem; cursor: pointer; color: var(--text-primary); flex: 1;">
+              <input type="checkbox" id="chkDocRg" style="width:18px; height:18px; accent-color:#b89764;">
+              <span><strong>Identidade Oficial</strong> (RG / CNH / OAB)</span>
+            </label>
+            <div>
+              <input type="file" id="fileDocRg" accept="image/*,application/pdf" style="display: none;" onchange="handleDocumentUpload(this, 'rg')">
+              <button class="btn btn-secondary" onclick="document.getElementById('fileDocRg').click()" style="padding: 4px 8px; font-size: 0.72rem; display: flex; align-items: center; gap: 4px; font-weight: 700;">
+                📷 Scan IA
+              </button>
+            </div>
+          </div>
+          
+          <!-- CPF -->
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+            <label style="display: flex; align-items: center; gap: 12px; font-size: 0.95rem; cursor: pointer; color: var(--text-primary); flex: 1;">
+              <input type="checkbox" id="chkDocCpf" style="width:18px; height:18px; accent-color:#b89764;">
+              <span><strong>Cadastro de Pessoa Física (CPF)</strong></span>
+            </label>
+            <div>
+              <input type="file" id="fileDocCpf" accept="image/*,application/pdf" style="display: none;" onchange="handleDocumentUpload(this, 'cpf')">
+              <button class="btn btn-secondary" onclick="document.getElementById('fileDocCpf').click()" style="padding: 4px 8px; font-size: 0.72rem; display: flex; align-items: center; gap: 4px; font-weight: 700;">
+                📷 Scan IA
+              </button>
+            </div>
+          </div>
+          
+          <!-- Endereço -->
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+            <label style="display: flex; align-items: center; gap: 12px; font-size: 0.95rem; cursor: pointer; color: var(--text-primary); flex: 1;">
+              <input type="checkbox" id="chkDocAddress" style="width:18px; height:18px; accent-color:#b89764;">
+              <span><strong>Comprovante de Residência</strong> (Últimos 90 dias)</span>
+            </label>
+            <div>
+              <input type="file" id="fileDocAddress" accept="image/*,application/pdf" style="display: none;" onchange="handleDocumentUpload(this, 'address')">
+              <button class="btn btn-secondary" onclick="document.getElementById('fileDocAddress').click()" style="padding: 4px 8px; font-size: 0.72rem; display: flex; align-items: center; gap: 4px; font-weight: 700;">
+                📷 Scan IA
+              </button>
+            </div>
+          </div>
+
+          
+          <label style="display: flex; align-items: center; gap: 12px; font-size: 0.95rem; cursor: pointer; color: var(--text-primary);">
+            <input type="checkbox" id="chkDocProxy" style="width:18px; height:18px; accent-color:#b89764;">
+            <span><strong>Procuração Assinada</strong> (Ad Judicia)</span>
+          </label>
+          
+          <label style="display: flex; align-items: center; gap: 12px; font-size: 0.95rem; cursor: pointer; color: var(--text-primary);">
+            <input type="checkbox" id="chkDocContract" style="width:18px; height:18px; accent-color:#b89764;">
+            <span><strong>Contrato de Honorários Assinado</strong></span>
+          </label>
+          
+          <label style="display: flex; align-items: center; gap: 12px; font-size: 0.95rem; cursor: pointer; color: var(--text-primary);">
+            <input type="checkbox" id="chkDocPoverty" style="width:18px; height:18px; accent-color:#b89764;">
+            <span><strong>Declaração de Hipossuficiência</strong> (Justiça Gratuita)</span>
+          </label>
+          
+          <label style="display: flex; align-items: center; gap: 12px; font-size: 0.95rem; cursor: pointer; color: var(--text-primary);">
+            <input type="checkbox" id="chkDocProof" style="width:18px; height:18px; accent-color:#b89764;">
+            <span><strong>Provas Iniciais</strong> (Contratos, prints, etc.)</span>
+          </label>
+        </div>
+      </div>
+      
+      <div class="modal-header" style="border-top: 1px solid var(--border-color); border-bottom: none; padding-top: 15px; margin-top: 15px;">
+        <div></div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" id="btnCancelClientDocModal">Cancelar</button>
+          <button type="button" class="btn btn-primary" onclick="saveClientDocChecklistFromModal()">Salvar Checklist</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: DOUTOR IA EXPLICA
+       ========================================================================= -->
+  <div class="modal-overlay" id="caseAIModalOverlay">
+    <div class="modal" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3 id="caseAIModalTitle">🤖 Doutor IA — Análise de Processo</h3>
+        <button class="btn-close-modal" id="btnCloseCaseAIModal">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body" style="padding: 24px;">
+        <div id="caseAILoader" style="display: none; text-align: center; padding: 40px 20px;">
+          <div class="status-dot connected" style="width: 24px; height: 24px; margin: 0 auto 16px; float: none;"></div>
+          <h4 style="font-size: 0.95rem; font-weight: 800; color: var(--text-main); margin-bottom: 6px;">Conectando ao banco judicial &bull; Gerando Insights com IA...</h4>
+          <p style="font-size: 0.78rem; color: var(--text-muted);">Traduzindo andamentos jurídicos complexos em linguagem simples.</p>
+        </div>
+
+        <div id="caseAIContent">
+          <!-- Status simplificado -->
+          <div style="background: var(--primary-light); border-left: 4px solid var(--primary); padding: 14px 18px; border-radius: 6px; margin-bottom: 20px;">
+            <h4 style="font-size: 0.8rem; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Status Simplificado</h4>
+            <p id="caseAIStatus" style="font-size: 0.92rem; font-weight: 700; color: var(--text-main); line-height: 1.5;"></p>
+          </div>
+
+          <!-- Abas internas no modal (Visão do Cliente / Visão do Advogado) -->
+          <div style="display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 18px; gap: 12px;">
+            <button class="btn" id="btnTabAIClient" style="background: transparent; color: var(--primary); border-bottom: 2px solid var(--primary); padding: 8px 4px; border-radius: 0; font-size: 0.82rem; font-weight: 800;">📢 Explicador para o Cliente</button>
+            <button class="btn" id="btnTabAILawyer" style="background: transparent; color: var(--text-muted); padding: 8px 4px; border-radius: 0; font-size: 0.82rem; font-weight: 600;">💼 Ações Recomendadas (Advogado)</button>
+          </div>
+
+          <!-- Aba Cliente -->
+          <div id="panelAIClient">
+            <h4 style="font-size: 0.76rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">O que está acontecendo:</h4>
+            <p id="caseAIExplanation" style="font-size: 0.84rem; color: var(--text-main); line-height: 1.6; margin-bottom: 16px; background: #FAFAF8; padding: 14px; border-radius: 6px; border: 1px solid var(--border-color);"></p>
+            
+            <h4 style="font-size: 0.76rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Próximo passo para o Cliente:</h4>
+            <p id="caseAINextStepClient" style="font-size: 0.84rem; color: var(--text-main); line-height: 1.6; background: rgba(8, 145, 178, 0.04); padding: 14px; border-radius: 6px; border: 1px solid rgba(8, 145, 178, 0.2);"></p>
+          </div>
+
+          <!-- Aba Advogado -->
+          <div id="panelAILawyer" style="display: none;">
+            <h4 style="font-size: 0.76rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Providências Judiciais recomendadas:</h4>
+            <p id="caseAINextStepLawyer" style="font-size: 0.84rem; color: var(--text-main); line-height: 1.6; background: rgba(22, 163, 74, 0.04); padding: 14px; border-radius: 6px; border: 1px solid rgba(22, 163, 74, 0.2);"></p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-header" style="border-top: 1px solid var(--border-color); border-bottom: none; background: #FAFAF8; padding: 12px 22px;">
+        <button class="btn btn-secondary" id="btnRefreshCaseAI" style="font-size: 0.78rem; font-weight: 700; padding: 6px 12px;">🔄 Recalcular com IA</button>
+        <button class="btn btn-primary" id="btnExitCaseAI" style="font-size: 0.78rem; font-weight: 700; padding: 6px 12px;">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: ASSISTENTE DE REDAÇÃO JURÍDICA (IA MODELOS)
+       ========================================================================= -->
+  <div class="modal-overlay" id="legalDraftModalOverlay">
+    <div class="modal" style="max-width: 650px;">
+      <div class="modal-header">
+        <h3 id="legalDraftModalTitle">✍️ Assistente de Redação Jurídica</h3>
+        <button class="btn-close-modal" id="btnCloseLegalDraftModal">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body" style="padding: 24px;">
+        <input type="hidden" id="legalDraftCaseId">
+
+        <div style="display: flex; gap: 12px; margin-bottom: 18px; align-items: flex-end;">
+          <div style="flex: 1;">
+            <label style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; display: block;">Tipo de Documento a Redigir</label>
+            <select id="legalDraftTypeSelect" class="form-control" style="height: 38px;">
+              <option value="proposta">Proposta de Honorários Advocatícios</option>
+              <option value="contrato">Contrato de Prestação de Serviços Jurídicos</option>
+              <option value="peticao">Petição de Petição Inicial (Esboço Inicial)</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" id="btnGenerateLegalDraft" style="height: 38px; display: flex; align-items: center; gap: 6px; font-weight: 800;">
+            ✨ Redigir com IA
+          </button>
+        </div>
+
+        <div id="legalDraftLoader" style="display: none; text-align: center; padding: 30px;">
+          <div class="status-dot connected" style="width: 18px; height: 18px; margin: 0 auto 12px; float: none;"></div>
+          <p style="font-size: 0.82rem; font-weight: 700; color: var(--text-main);">Processando informações do caso e redigindo documento de alta qualidade...</p>
+        </div>
+
+        <div id="legalDraftContent" style="display: none;">
+          <label style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; display: block;">Documento Gerado (Editável)</label>
+          <textarea id="legalDraftTextArea" class="form-control" rows="12" style="font-family: monospace; font-size: 0.85rem; line-height: 1.5; width: 100%; resize: vertical; padding: 14px; background: #FAFAF8; border-color: var(--border-color);"></textarea>
+          
+          <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px;">
+            <button class="btn btn-secondary" id="btnCopyLegalDraft" style="font-size: 0.78rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
+              📋 Copiar Texto
+            </button>
+            <button class="btn btn-primary" id="btnShareWhatsAppDraft" style="font-size: 0.78rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; background: #25d366; border-color: #25d366; color: white;">
+              💬 Enviar via WhatsApp
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Container Invisível Usado Para Impressão Nativa do Carnê -->
+  <div id="billingCarnePrintArea"></div>
+
+  <!-- Scripts do App -->
+  <script src="libs/qrcode.min.js"></script>
+  <script src="supabase-client.js"></script>
+  <script src="app.js"></script>
+</body>
+
+</html>
