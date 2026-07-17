@@ -36,7 +36,7 @@ const TAB_PERMISSIONS = {
   owner:     ['dashboard', 'transactions', 'clients', 'cases', 'timesheets', 'members', 'billing-generator', 'organization'],
   partner:   ['transactions', 'clients', 'cases', 'timesheets', 'billing-generator', 'organization'],
   financial: ['dashboard', 'transactions', 'clients', 'cases', 'billing-generator', 'organization'],
-  associate: ['clients', 'cases', 'timesheets', 'organization'],
+  associate: ['clients', 'cases', 'organization'],
 };
 
 /** Ações permitidas por papel */
@@ -2549,8 +2549,16 @@ function renderOrgTasksTable() {
   const tbody = document.getElementById('orgTasksTableBody');
   const countBadge = document.getElementById('orgTaskCount');
   
-  const tasks = AppState.orgTasks || [];
+  let tasks = AppState.orgTasks || [];
   const isOwner = AppState.userProfile?.role === 'owner';
+  const role = AppState.userProfile?.role;
+  const userFullName = AppState.userProfile?.full_name;
+
+  // Filtragem para o associado: apenas tarefas atribuídas a ele e que tenham prazo para HOJE (YYYY-MM-DD)
+  if (role === 'associate') {
+    const todayStr = new Date().toLocaleDateString('en-CA'); // Retorna YYYY-MM-DD
+    tasks = tasks.filter(t => t.assignee_name === userFullName && t.deadline === todayStr);
+  }
   
   // Oculta ou mostra o cabeçalho da coluna de Ações na tabela
   const headerActions = document.querySelector('#subtab-org-tasks table th:last-child');
@@ -2565,7 +2573,7 @@ function renderOrgTasksTable() {
     tbody.innerHTML = `
       <tr>
         <td colspan="${isOwner ? '5' : '4'}" style="text-align: center; color: var(--text-muted); padding: 30px;">
-          Nenhuma tarefa cadastrada. Adicione uma no formulário ao lado!
+          Nenhuma tarefa cadastrada para hoje.
         </td>
       </tr>
     `;
@@ -2599,10 +2607,31 @@ function renderOrgTasksTable() {
         </td>`
       : '';
 
+    // Estilização do status dropdown de forma bonita
+    let selectBg = '#fff8e1'; // pendente (amarelo)
+    let selectColor = '#b78103';
+    if (task.done) {
+      selectBg = '#e8f5e9'; // feito (verde)
+      selectColor = '#2e7d32';
+    } else if (isOverdue) {
+      selectBg = '#ffebee'; // não feito / atrasado (vermelho)
+      selectColor = '#c62828';
+    }
+
+    const selectStyle = `background: ${selectBg}; color: ${selectColor}; border: 1px solid ${selectColor}40; border-radius: 4px; padding: 4px 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer; outline: none; font-family: var(--font-main);`;
+
+    const statusDropdown = `
+      <select onchange="updateOrgTaskStatusSelect('${task.id}', this.value)" style="${selectStyle}">
+        <option value="pending" ${!task.done && !isOverdue ? 'selected' : ''}>🟡 Pendente</option>
+        <option value="not_done" ${!task.done && isOverdue ? 'selected' : ''}>🔴 Não Feito</option>
+        <option value="done" ${task.done ? 'selected' : ''}>🟢 Feito</option>
+      </select>
+    `;
+
     tbody.innerHTML += `
-      <tr style="${task.done ? 'opacity: 0.55; text-decoration: line-through;' : ''}">
+      <tr style="${task.done ? 'opacity: 0.7;' : ''}">
         <td style="text-align: center;">
-          <input type="checkbox" ${task.done ? 'checked' : ''} onchange="toggleOrgTaskStatus('${task.id}')" style="width:16px; height:16px; cursor:pointer;">
+          ${statusDropdown}
         </td>
         <td><strong>${task.activity}</strong></td>
         <td><span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-primary); border: 1px solid var(--border-color);">${assigneeName}</span></td>
@@ -2613,6 +2642,29 @@ function renderOrgTasksTable() {
   });
 
   countBadge.textContent = `${pendingCount} pendente(s)`;
+}
+
+/**
+ * Atualiza o status da tarefa no Supabase via seletor dropdown
+ */
+async function updateOrgTaskStatusSelect(taskId, value) {
+  const task = AppState.orgTasks.find(t => t.id === taskId);
+  if (!task) return;
+
+  const isDone = (value === 'done');
+  
+  try {
+    showLoader(true);
+    await toggleOrgTaskDone(taskId, isDone);
+    task.done = isDone;
+    task.done_at = isDone ? new Date().toISOString() : null;
+    showToast("Status da tarefa atualizado com sucesso!", "success");
+    renderOrgTasksTable();
+  } catch (err) {
+    showToast("Erro ao atualizar status: " + err.message, "error");
+  } finally {
+    showLoader(false);
+  }
 }
 
 /**
