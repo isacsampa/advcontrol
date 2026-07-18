@@ -2298,15 +2298,17 @@ function initBillingGeneratorTab() {
   const pixKeyInput = document.getElementById('bgPixKey');
   const firstDueDateInput = document.getElementById('bgFirstDueDate');
 
-  // Preenche dados fixos e obrigatórios da Rego Júnior Advogados
-  beneficiaryInput.value = "Rego Júnior Advogados";
-  bankInput.value = "Banco Cora";
-  pixKeyInput.value = "financeiro@regojunior.adv.br";
-  phoneInput.value = "(11) 3254-8900";
-  addressInput.value = "Av. Paulista, 1200 - Cj. 41 - Bela Vista - São Paulo/SP";
+  const settings = AppState.officeSettings || {};
 
-  // Inicializa logo corporativa fixa da Rego Júnior
-  billingLogoBase64 = (typeof JR_LOGO_BASE64 !== 'undefined') ? JR_LOGO_BASE64 : '';
+  // Preenche dados dinamicamente a partir das Configurações do Escritório com fallbacks
+  beneficiaryInput.value = settings.beneficiary_name || settings.office_name || "Rego Júnior Advogados";
+  bankInput.value = settings.bank_name || "Banco Cora";
+  pixKeyInput.value = settings.pix_key || "financeiro@regojunior.adv.br";
+  phoneInput.value = settings.phone || "(11) 3254-8900";
+  addressInput.value = settings.address || "Av. Paulista, 1200 - Cj. 41 - Bela Vista - São Paulo/SP";
+
+  // Inicializa logo a partir das configurações ou logo padrão JR
+  billingLogoBase64 = settings.logo_base64 || ((typeof JR_LOGO_BASE64 !== 'undefined') ? JR_LOGO_BASE64 : '');
 
   // Define data padrão de vencimento para 30 dias a partir de hoje
   if (!firstDueDateInput.value) {
