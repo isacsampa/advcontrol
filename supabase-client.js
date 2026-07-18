@@ -246,6 +246,25 @@ async function createClient(tenantId, clientData) {
       .select();
 
     if (error) {
+      if (error.message && error.message.includes('birth_date')) {
+        console.warn("Coluna birth_date nao encontrada na tabela clients. Salvando no localStorage.");
+        const cleanData = { ...clientData };
+        const birth = cleanData.birth_date;
+        delete cleanData.birth_date;
+        
+        const res = await client
+          .from('clients')
+          .insert([{ tenant_id: tenantId, ...cleanData }])
+          .select();
+        
+        if (res.error) throw res.error;
+        const saved = res.data[0];
+        if (saved && birth) {
+          localStorage.setItem('client_birth_' + saved.id, birth);
+          saved.birth_date = birth;
+        }
+        return saved;
+      }
       console.warn("Erro ao inserir cliente no Supabase. Gravando localmente.", error);
       return _createClientLocalStorage(tenantId, clientData);
     }
@@ -268,6 +287,28 @@ async function updateClient(clientId, clientData) {
       .select();
 
     if (error) {
+      if (error.message && error.message.includes('birth_date')) {
+        console.warn("Coluna birth_date nao encontrada na tabela clients. Salvando no localStorage.");
+        const cleanData = { ...clientData };
+        const birth = cleanData.birth_date;
+        delete cleanData.birth_date;
+
+        const res = await client
+          .from('clients')
+          .update(cleanData)
+          .eq('id', clientId)
+          .select();
+
+        if (res.error) throw res.error;
+        const saved = res.data[0];
+        if (saved && birth) {
+          localStorage.setItem('client_birth_' + saved.id, birth);
+          saved.birth_date = birth;
+        } else if (saved) {
+          localStorage.removeItem('client_birth_' + saved.id);
+        }
+        return saved;
+      }
       console.warn("Erro ao atualizar cliente no Supabase. Gravando localmente.", error);
       return _updateClientLocalStorage(clientId, clientData);
     }
@@ -737,14 +778,60 @@ async function updateUserProfile(profileId, profileData) {
   const client = getSupabaseClient();
   if (!client) throw new Error("Supabase não configurado.");
 
-  const { data, error } = await client
-    .from('user_profiles')
-    .update(profileData)
-    .eq('id', profileId)
-    .select();
+  try {
+    const { data, error } = await client
+      .from('user_profiles')
+      .update(profileData)
+      .eq('id', profileId)
+      .select();
 
-  if (error) throw error;
-  return data[0];
+    if (error) {
+      if (error.message && error.message.includes('birth_date')) {
+        console.warn("Coluna birth_date nao encontrada na tabela user_profiles. Salvando no localStorage.");
+        const cleanData = { ...profileData };
+        const birth = cleanData.birth_date;
+        delete cleanData.birth_date;
+
+        const res = await client
+          .from('user_profiles')
+          .update(cleanData)
+          .eq('id', profileId)
+          .select();
+
+        if (res.error) throw res.error;
+        const saved = res.data[0];
+        if (saved && birth) {
+          localStorage.setItem('member_birth_' + saved.id, birth);
+          saved.birth_date = birth;
+        } else if (saved) {
+          localStorage.removeItem('member_birth_' + saved.id);
+        }
+        return saved;
+      }
+      throw error;
+    }
+    return data[0];
+  } catch (err) {
+    if (err.message && err.message.includes('birth_date')) {
+      // Re-tentativa em caso de erro jogado
+      const cleanData = { ...profileData };
+      const birth = cleanData.birth_date;
+      delete cleanData.birth_date;
+      const res = await client
+        .from('user_profiles')
+        .update(cleanData)
+        .eq('id', profileId)
+        .select();
+      if (res.error) throw res.error;
+      const saved = res.data[0];
+      if (saved && birth) {
+        localStorage.setItem('member_birth_' + saved.id, birth);
+        saved.birth_date = birth;
+      }
+      return saved;
+    }
+    throw err;
+  }
 }
 
 async function deleteUserProfile(profileId) {

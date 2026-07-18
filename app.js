@@ -115,6 +115,11 @@ function _setVisible(id, visible) {
   if (el) el.style.display = visible ? '' : 'none';
 }
 
+// Estado do Calendário Interativo
+let currentCalendarMonth = new Date().getMonth();
+let currentCalendarYear = new Date().getFullYear();
+let selectedCalendarDate = new Date();
+
 // =========================================================================
 // ESTADO DO CONVITE (acessível globalmente pelo handler de cadastro)
 // =========================================================================
@@ -508,17 +513,28 @@ async function refreshAllData() {
       getOfficeSettings(AppState.userProfile.tenant_id)
     ]);
     
-    AppState.clients = clients || [];
+    AppState.clients = (clients || []).map(c => {
+      const cachedBirth = localStorage.getItem('client_birth_' + c.id);
+      if (cachedBirth) c.birth_date = cachedBirth;
+      return c;
+    });
     AppState.cases = cases || [];
     AppState.transactions = transactions || [];
     AppState.timesheets = timesheets || [];
-    AppState.members = members || [];
+    AppState.members = (members || []).map(m => {
+      const cachedBirth = localStorage.getItem('member_birth_' + m.id);
+      if (cachedBirth) m.birth_date = cachedBirth;
+      return m;
+    });
     AppState.orgTasks = orgTasks || [];
     AppState.appointments = appointments || [];
     AppState.officeSettings = settings || null;
 
     // Aplica o tema visual do escritório
     applyOfficeTheme(AppState.officeSettings);
+    
+    // Verifica aniversariantes de hoje para exibir alertas no Dashboard
+    checkTodayBirthdays();
     
     // Atualiza a lista interativa de onboarding se estiver configurada
     if (typeof renderOnboardingChecklist === 'function') {
@@ -1133,6 +1149,7 @@ function openClientForm(clientId = null) {
   // Limpa o formulário
   document.getElementById('clientForm').reset();
   idInput.value = '';
+  document.getElementById('clientBirthInput').value = '';
 
   if (clientId) {
     title.textContent = "Editar Cliente";
@@ -1144,6 +1161,10 @@ function openClientForm(clientId = null) {
       emailInput.value = client.email || '';
       phoneInput.value = client.phone || '';
       activeInput.value = client.is_active ? "true" : "false";
+      
+      // Fallback para localStorage se a coluna não existir no banco
+      const cachedBirth = localStorage.getItem('client_birth_' + client.id);
+      document.getElementById('clientBirthInput').value = client.birth_date || cachedBirth || '';
     }
   } else {
     title.textContent = "Cadastrar Cliente";
@@ -1879,6 +1900,10 @@ function openMemberForm(profileId) {
   document.getElementById('memberHourlyRateInput').value = member.default_hourly_rate ? parseFloat(member.default_hourly_rate) : '';
   document.getElementById('memberActiveSelect').value = member.is_active ? "true" : "false";
 
+  // Carrega birth_date com fallback para localStorage
+  const cachedBirth = localStorage.getItem('member_birth_' + member.id);
+  document.getElementById('memberBirthInput').value = member.birth_date || cachedBirth || '';
+
   overlay.classList.add('active');
 }
 
@@ -1888,7 +1913,8 @@ async function handleMemberFormSubmit(e) {
   const payload = {
     role: document.getElementById('memberRoleSelect').value,
     default_hourly_rate: parseFloat(document.getElementById('memberHourlyRateInput').value) || null,
-    is_active: document.getElementById('memberActiveSelect').value === "true"
+    is_active: document.getElementById('memberActiveSelect').value === "true",
+    birth_date: document.getElementById('memberBirthInput').value || null
   };
 
   showLoader(true);
@@ -2024,6 +2050,25 @@ function initFormEventListeners() {
 
   _addEvent('btnCancelClientDocModal', 'click', () => closeModal('clientDocModalOverlay'));
   _addEvent('btnCloseClientDocModal', 'click', () => closeModal('clientDocModalOverlay'));
+
+  // Calendário interativo: Mês anterior/Mês posterior
+  _addEvent('btnPrevMonth', 'click', () => {
+    currentCalendarMonth--;
+    if (currentCalendarMonth < 0) {
+      currentCalendarMonth = 11;
+      currentCalendarYear--;
+    }
+    renderMiniCalendar();
+  });
+
+  _addEvent('btnNextMonth', 'click', () => {
+    currentCalendarMonth++;
+    if (currentCalendarMonth > 11) {
+      currentCalendarMonth = 0;
+      currentCalendarYear++;
+    }
+    renderMiniCalendar();
+  });
 
   // Gatilhos de Abertura de Novo Cadastro
   _addEvent('btnNewClient', 'click', () => openClientForm());
@@ -3704,16 +3749,16 @@ async function initAgendaTab() {
   if (formCard && layoutGrid) {
     if (isOwnerOrSecretary) {
       formCard.style.display = '';
-      layoutGrid.style.gridTemplateColumns = '1fr 2fr';
     } else {
       formCard.style.display = 'none';
-      layoutGrid.style.gridTemplateColumns = '1fr';
     }
+    // O calendário do lado esquerdo continua visível, então sempre mantemos duas colunas
+    layoutGrid.style.gridTemplateColumns = '1.2fr 2fr';
   }
 
   // Popula o select de Responsável
   const assigneeSelect = document.getElementById('agendaAssignee');
-  assigneeSelect.innerHTML = '<option value="">Selecione um advogado...</option>';
+  assigneeSelect.innerHTML = '<option value="">Selecione...</option>';
   
   if (AppState.members && AppState.members.length > 0) {
     AppState.members.forEach(member => {
@@ -3725,7 +3770,7 @@ async function initAgendaTab() {
 
   // Popula o select de Clientes
   const clientSelect = document.getElementById('agendaClient');
-  clientSelect.innerHTML = '<option value="">Selecione um cliente (opcional)...</option>';
+  clientSelect.innerHTML = '<option value="">Opcional...</option>';
   AppState.clients.forEach(c => {
     clientSelect.innerHTML += `<option value="${c.id}">${c.name}</option>`;
   });
@@ -3749,6 +3794,16 @@ async function initAgendaTab() {
     startAtInput.value = localNow.toISOString().slice(0, 16);
   }
 
+  // Reseta estado do calendário para hoje
+  selectedCalendarDate = new Date();
+  currentCalendarMonth = selectedCalendarDate.getMonth();
+  currentCalendarYear = selectedCalendarDate.getFullYear();
+
+  const filterSelect = document.getElementById('filterAgendaDate');
+  if (filterSelect) {
+    filterSelect.value = 'selected';
+  }
+
   // Carrega e renderiza os dados
   showLoader(true);
   try {
@@ -3759,7 +3814,8 @@ async function initAgendaTab() {
     showLoader(false);
   }
 
-  renderAppointmentsList();
+  renderMiniCalendar();
+  updateDayInfoPanel(selectedCalendarDate);
 }
 
 /**
@@ -3805,7 +3861,8 @@ async function addAppointment() {
       
       // Carrega atualizado do banco
       AppState.appointments = await getAppointments();
-      renderAppointmentsList();
+      renderMiniCalendar();
+      updateDayInfoPanel(selectedCalendarDate);
     }
   } catch (err) {
     showToast("Erro ao salvar compromisso: " + err.message, "error");
@@ -3825,7 +3882,8 @@ async function handleDeleteAppointment(appointmentId) {
     await deleteAppointment(appointmentId);
     AppState.appointments = AppState.appointments.filter(a => a.id !== appointmentId);
     showToast("Compromisso cancelado/removido.", "info");
-    renderAppointmentsList();
+    renderMiniCalendar();
+    updateDayInfoPanel(selectedCalendarDate);
   } catch (err) {
     showToast("Erro ao remover compromisso: " + err.message, "error");
   } finally {
@@ -3862,11 +3920,17 @@ function renderAppointmentsList() {
     );
   }
 
-  // 3. Filtro por data (Hoje, Esta Semana, Todos)
+  // 3. Filtro por data (Dia Selecionado, Hoje, Esta Semana, Todos)
   const today = new Date();
   const todayStr = today.toLocaleDateString('en-CA'); // YYYY-MM-DD
 
-  if (filterDate === 'today') {
+  if (filterDate === 'selected') {
+    const selDateStr = selectedCalendarDate.toLocaleDateString('en-CA');
+    list = list.filter(a => {
+      const aDate = new Date(a.start_at).toLocaleDateString('en-CA');
+      return aDate === selDateStr;
+    });
+  } else if (filterDate === 'today') {
     list = list.filter(a => {
       const aDate = new Date(a.start_at).toLocaleDateString('en-CA');
       return aDate === todayStr;
@@ -3881,12 +3945,22 @@ function renderAppointmentsList() {
     });
   }
 
+  // 4. Se o filtro for Dia Selecionado ou Hoje, busca também tarefas pendentes que vencem no dia
+  let tasksList = [];
+  if (filterDate === 'selected' || filterDate === 'today') {
+    const filterDayStr = filterDate === 'selected' 
+      ? selectedCalendarDate.toLocaleDateString('en-CA') 
+      : todayStr;
+      
+    tasksList = (AppState.orgTasks || []).filter(t => t.deadline === filterDayStr && !t.done);
+  }
+
   container.innerHTML = '';
 
-  if (list.length === 0) {
+  if (list.length === 0 && tasksList.length === 0) {
     container.innerHTML = `
       <div style="text-align: center; color: var(--text-muted); padding: 40px;">
-        📅 Nenhum compromisso agendado para o período selecionado.
+        📅 Nenhum compromisso ou tarefa para o período selecionado.
       </div>
     `;
     return;
@@ -3965,6 +4039,260 @@ function renderAppointmentsList() {
       </div>
     `;
   });
+
+  // Renderiza as tarefas pendentes do dia
+  if (tasksList && tasksList.length > 0) {
+    tasksList.forEach(task => {
+      container.innerHTML += `
+        <div class="onboarding-step-card" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border: 1.5px dashed #3b82f6; border-radius: var(--radius); background: #eff6ff; box-shadow: var(--shadow-sm); transition: var(--transition);">
+          <div style="display: flex; gap: 14px; align-items: center;">
+            <div style="font-size: 1.4rem;">📝</div>
+            <div>
+              <h4 style="margin: 0; font-size: 0.9rem; font-weight: 700; color: #1e3a8a;">Tarefa: ${task.activity}</h4>
+              <div style="font-size: 0.75rem; color: #1d4ed8; margin-top: 2px;">
+                Responsável: ${task.assignee} | Status: ⏳ Pendente
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="switchTab('organization')" style="padding: 6px 12px; font-size: 0.7rem; background: #2563eb; border: none; min-width: auto; height: auto; border-radius: 4px; color: #fff; cursor: pointer; font-weight: 600;">Concluir</button>
+        </div>
+      `;
+    });
+  }
+}
+
+/**
+ * Trata mudanca do filtro de data da agenda
+ */
+function handleAgendaFilterChange() {
+  const filterDate = document.getElementById('filterAgendaDate').value;
+  if (filterDate === 'selected') {
+    updateDayInfoPanel(selectedCalendarDate);
+  } else {
+    document.getElementById('selectedDayBirthdaysContainer').style.display = 'none';
+    document.getElementById('selectedDayTitle').textContent = 
+      filterDate === 'today' ? 'Compromissos de Hoje' : 
+      (filterDate === 'week' ? 'Compromissos desta Semana' : 'Todos os Compromissos');
+    document.getElementById('selectedDaySub').textContent = '';
+    renderAppointmentsList();
+  }
+}
+
+/**
+ * Renderiza o calendario mensal interativo
+ */
+function renderMiniCalendar() {
+  const monthNames = [
+    "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+  ];
+  
+  const titleEl = document.getElementById('calendarMonthYear');
+  const gridEl = document.getElementById('calendarDaysGrid');
+  if (!titleEl || !gridEl) return;
+
+  titleEl.textContent = `${monthNames[currentCalendarMonth]} ${currentCalendarYear}`;
+  gridEl.innerHTML = '';
+
+  const firstDay = new Date(currentCalendarYear, currentCalendarMonth, 1);
+  const startDayOfWeek = firstDay.getDay();
+  const totalDays = new Date(currentCalendarYear, currentCalendarMonth + 1, 0).getDate();
+  const prevMonthTotalDays = new Date(currentCalendarYear, currentCalendarMonth, 0).getDate();
+
+  // 1. Dias do mes anterior
+  for (let i = startDayOfWeek - 1; i >= 0; i--) {
+    const dayNum = prevMonthTotalDays - i;
+    const cell = document.createElement('div');
+    cell.style.padding = '8px 0';
+    cell.style.fontSize = '0.85rem';
+    cell.style.color = 'var(--text-muted)';
+    cell.style.opacity = '0.35';
+    cell.textContent = dayNum;
+    gridEl.appendChild(cell);
+  }
+
+  // 2. Dias do mes atual
+  const today = new Date();
+  for (let day = 1; day <= totalDays; day++) {
+    const cellDate = new Date(currentCalendarYear, currentCalendarMonth, day);
+    const cell = document.createElement('div');
+    cell.style.padding = '6px 0';
+    cell.style.fontSize = '0.85rem';
+    cell.style.fontWeight = '600';
+    cell.style.borderRadius = '50%';
+    cell.style.cursor = 'pointer';
+    cell.style.position = 'relative';
+    cell.style.display = 'flex';
+    cell.style.flexDirection = 'column';
+    cell.style.alignItems = 'center';
+    cell.style.justifyContent = 'center';
+    cell.style.width = '32px';
+    cell.style.height = '32px';
+    cell.style.margin = '0 auto';
+    cell.style.transition = 'all 0.2s ease';
+    cell.textContent = day;
+
+    const isToday = cellDate.toDateString() === today.toDateString();
+    const isSelected = cellDate.toDateString() === selectedCalendarDate.toDateString();
+
+    if (isSelected) {
+      cell.style.backgroundColor = 'var(--primary)';
+      cell.style.color = '#ffffff';
+    } else if (isToday) {
+      cell.style.backgroundColor = 'var(--primary-light)';
+      cell.style.color = 'var(--primary)';
+      cell.style.border = '1px solid var(--primary)';
+    } else {
+      cell.style.color = 'var(--text-dark)';
+      cell.onmouseover = () => cell.style.backgroundColor = 'rgba(0,0,0,0.05)';
+      cell.onmouseout = () => cell.style.backgroundColor = '';
+    }
+
+    const dayStr = day.toString().padStart(2, '0');
+    const monthStr = (currentCalendarMonth + 1).toString().padStart(2, '0');
+    const fullDateStr = `${currentCalendarYear}-${monthStr}-${dayStr}`;
+
+    const hasAppointments = (AppState.appointments || []).some(ap => {
+      return new Date(ap.start_at).toLocaleDateString('en-CA') === fullDateStr;
+    });
+
+    const hasClientBirthdays = (AppState.clients || []).some(c => {
+      if (!c.birth_date) return false;
+      return c.birth_date.slice(5, 10) === `${monthStr}-${dayStr}` || (c.birth_date.slice(8, 10) === dayStr && c.birth_date.slice(5, 7) === monthStr);
+    });
+
+    const hasMemberBirthdays = (AppState.members || []).some(m => {
+      if (!m.birth_date) return false;
+      return m.birth_date.slice(5, 10) === `${monthStr}-${dayStr}` || (m.birth_date.slice(8, 10) === dayStr && m.birth_date.slice(5, 7) === monthStr);
+    });
+
+    if (hasAppointments || hasClientBirthdays || hasMemberBirthdays) {
+      const dot = document.createElement('span');
+      dot.style.position = 'absolute';
+      dot.style.bottom = '2px';
+      dot.style.width = '5px';
+      dot.style.height = '5px';
+      dot.style.borderRadius = '50%';
+      
+      if (hasClientBirthdays || hasMemberBirthdays) {
+        dot.style.backgroundColor = '#d97706';
+      } else {
+        dot.style.backgroundColor = 'var(--primary)';
+      }
+      cell.appendChild(dot);
+    }
+
+    cell.onclick = () => {
+      selectedCalendarDate = cellDate;
+      renderMiniCalendar();
+      const filterSelect = document.getElementById('filterAgendaDate');
+      if (filterSelect) {
+        filterSelect.value = 'selected';
+      }
+      updateDayInfoPanel(selectedCalendarDate);
+    };
+
+    gridEl.appendChild(cell);
+  }
+
+  // 3. Dias do proximo mes
+  const totalCellsFilled = startDayOfWeek + totalDays;
+  const remainingCells = 42 - totalCellsFilled;
+  for (let day = 1; day <= remainingCells; day++) {
+    const cell = document.createElement('div');
+    cell.style.padding = '8px 0';
+    cell.style.fontSize = '0.85rem';
+    cell.style.color = 'var(--text-muted)';
+    cell.style.opacity = '0.35';
+    cell.textContent = day;
+    gridEl.appendChild(cell);
+  }
+}
+
+/**
+ * Atualiza o painel lateral com as informacoes do dia selecionado
+ */
+function updateDayInfoPanel(dateObj) {
+  const titleEl = document.getElementById('selectedDayTitle');
+  const subEl = document.getElementById('selectedDaySub');
+  const bContainer = document.getElementById('selectedDayBirthdaysContainer');
+  const bText = document.getElementById('selectedDayBirthdaysText');
+
+  if (!titleEl || !subEl || !bContainer || !bText) return;
+
+  const dayStr = dateObj.getDate().toString().padStart(2, '0');
+  const monthStr = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+  const dateFormattedPT = dateObj.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  titleEl.textContent = `Agenda do Dia`;
+  subEl.textContent = dateFormattedPT;
+
+  const filterDayMonth = `${monthStr}-${dayStr}`;
+  const clientBdays = (AppState.clients || []).filter(c => {
+    if (!c.birth_date) return false;
+    return c.birth_date.slice(5, 10) === filterDayMonth || (c.birth_date.slice(8, 10) === dayStr && c.birth_date.slice(5, 7) === monthStr);
+  });
+
+  const memberBdays = (AppState.members || []).filter(m => {
+    if (!m.birth_date) return false;
+    return m.birth_date.slice(5, 10) === filterDayMonth || (m.birth_date.slice(8, 10) === dayStr && m.birth_date.slice(5, 7) === monthStr);
+  });
+
+  if (clientBdays.length > 0 || memberBdays.length > 0) {
+    bContainer.style.display = 'flex';
+    
+    let messages = [];
+    if (clientBdays.length > 0) {
+      const names = clientBdays.map(c => `<strong>${c.name}</strong> (Cliente)`).join(', ');
+      messages.push(`Hoje e aniversario de: ${names}`);
+    }
+    if (memberBdays.length > 0) {
+      const names = memberBdays.map(m => `<strong>${m.full_name}</strong> (Colaborador)`).join(', ');
+      messages.push(`Hoje e aniversario de: ${names}`);
+    }
+    bText.innerHTML = messages.join('<br>') + '. Parabenize-os! 🎉';
+  } else {
+    bContainer.style.display = 'none';
+  }
+
+  renderAppointmentsList();
+}
+
+/**
+ * Alerta de aniversariantes do dia atual no Dashboard
+ */
+function checkTodayBirthdays() {
+  const today = new Date();
+  const dayStr = today.getDate().toString().padStart(2, '0');
+  const monthStr = (today.getMonth() + 1).toString().padStart(2, '0');
+  const dayMonthPattern = `${monthStr}-${dayStr}`;
+
+  const clientBdays = (AppState.clients || []).filter(c => {
+    if (!c.birth_date) return false;
+    return c.birth_date.slice(5, 10) === dayMonthPattern || (c.birth_date.slice(8, 10) === dayStr && c.birth_date.slice(5, 7) === monthStr);
+  });
+
+  const memberBdays = (AppState.members || []).filter(m => {
+    if (!m.birth_date) return false;
+    return m.birth_date.slice(5, 10) === dayMonthPattern || (m.birth_date.slice(8, 10) === dayStr && m.birth_date.slice(5, 7) === monthStr);
+  });
+
+  const alertContainer = document.getElementById('birthdayAlertsContainer');
+  const alertText = document.getElementById('birthdayAlertText');
+
+  if (alertContainer && alertText) {
+    if (clientBdays.length > 0 || memberBdays.length > 0) {
+      alertContainer.style.display = 'flex';
+      
+      let namesList = [];
+      clientBdays.forEach(c => namesList.push(`cliente <strong>${c.name}</strong>`));
+      memberBdays.forEach(m => namesList.push(`colaborador(a) <strong>${m.full_name}</strong>`));
+      
+      alertText.innerHTML = `🎉 Hoje e aniversario de: ${namesList.join(', ')}! Desejamos muitos anos de vida! 🎂`;
+    } else {
+      alertContainer.style.display = 'none';
+    }
+  }
 }
 
 // =========================================================================

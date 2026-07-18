@@ -8,7 +8,7 @@
   <meta name="description" content="AdvControl — Sistema SaaS de gestão completa para escritórios de advocacia. Fluxo de caixa, clientes, processos e timesheets em um só lugar.">
 
   <!-- Estilos e Fontes -->
-  <link rel="stylesheet" href="styles.css?v=2.0.3">
+  <link rel="stylesheet" href="styles.css?v=2.0.4">
 
   <!-- Supabase JS Client v2 (local) -->
   <script src="libs/supabase.min.js"></script>
@@ -16,7 +16,7 @@
   <!-- Chart.js para Gráficos Dinâmicos (local) -->
   <script src="libs/chart.min.js"></script>
   <!-- Logo JR embutida (carrega automaticamente nos boletos) -->
-  <script src="logo-jr.js?v=2.0.3"></script>
+  <script src="logo-jr.js?v=2.0.4"></script>
   <!-- Fail-safe instantâneo para Convites de Equipe (Ignora cache de JS) -->
   <script>
     (function() {
@@ -265,6 +265,15 @@
          ABAS: DASHBOARD
          ========================================================================= -->
     <section class="view-pane active" id="view-dashboard">
+      <!-- Alerta de Aniversariantes do Dia -->
+      <div id="birthdayAlertsContainer" style="display: none; margin-bottom: 24px; padding: 14px 20px; border-radius: var(--radius); background: linear-gradient(135deg, #fef3c7, #fde68a); border: 1px solid #fcd34d; color: #92400e; box-shadow: var(--shadow-sm); align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-weight: 500; font-size: 0.9rem;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.3rem;">🎂</span>
+          <span id="birthdayAlertText">Hoje temos aniversariantes no escritório!</span>
+        </div>
+        <button class="btn" onclick="switchTab('agenda')" style="background: #b45309; border: none; padding: 6px 14px; font-size: 0.75rem; color: #fff; border-radius: 4px; font-weight: 600; cursor: pointer; display: flex; align-items: center;">Ver na Agenda</button>
+      </div>
+
       <!-- Grid de Indicadores -->
       <div class="metrics-grid">
         <div class="metric-card operational">
@@ -339,76 +348,115 @@
         <p style="color: var(--text-muted); font-size: 0.9rem;">Organize as reuniões, audiências e compromissos importantes do escritório.</p>
       </div>
 
-      <div id="agendaLayoutGrid" style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px; align-items: start;">
+      <div id="agendaLayoutGrid" style="display: grid; grid-template-columns: 1.2fr 2fr; gap: 24px; align-items: start;">
         
-        <!-- Formulário de Agendamento (Ocultável para associados) -->
-        <div id="agendaFormCard" class="chart-card" style="padding: 20px;">
-          <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-dark); margin-bottom: 16px;">Novo Compromisso</h3>
+        <!-- Coluna da Esquerda: Calendário + Novo Agendamento -->
+        <div style="display: flex; flex-direction: column; gap: 20px;">
           
-          <form id="agendaForm" onsubmit="event.preventDefault(); addAppointment();" style="display: flex; flex-direction: column; gap: 14px;">
-            <div class="form-group">
-              <label for="agendaTitle" class="required">Título / Assunto</label>
-              <input type="text" id="agendaTitle" class="form-control" placeholder="Ex: Audiência de Conciliação" required>
+          <!-- Card de Calendário Mensal -->
+          <div id="miniCalendarCard" class="chart-card" style="padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+              <h3 id="calendarMonthYear" style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-dark);">Julho 2026</h3>
+              <div style="display: flex; gap: 6px;">
+                <button type="button" id="btnPrevMonth" class="btn" style="padding: 4px 10px; min-width: auto; height: 30px; border: 1px solid var(--border-color); background: var(--bg-primary); cursor: pointer; border-radius: 6px; font-weight: bold; color: var(--text-dark);">&lt;</button>
+                <button type="button" id="btnNextMonth" class="btn" style="padding: 4px 10px; min-width: auto; height: 30px; border: 1px solid var(--border-color); background: var(--bg-primary); cursor: pointer; border-radius: 6px; font-weight: bold; color: var(--text-dark);">&gt;</button>
+              </div>
             </div>
             
-            <div class="form-group">
-              <label for="agendaStartAt" class="required">Data e Hora</label>
-              <input type="datetime-local" id="agendaStartAt" class="form-control" required>
+            <!-- Dias da Semana -->
+            <div style="display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-bottom: 8px;">
+              <div>Dom</div>
+              <div>Seg</div>
+              <div>Ter</div>
+              <div>Qua</div>
+              <div>Qui</div>
+              <div>Sex</div>
+              <div>Sáb</div>
             </div>
-
-            <div class="form-group">
-              <label for="agendaAssignee">Responsável / Advogado</label>
-              <select id="agendaAssignee" class="form-control" required>
-                <option value="">Selecione um advogado...</option>
-                <!-- JS populará -->
-              </select>
+            
+            <!-- Dias do Mês (Grid) -->
+            <div id="calendarDaysGrid" style="display: grid; grid-template-columns: repeat(7, 1fr); row-gap: 8px; column-gap: 4px; text-align: center;">
+              <!-- JS gerará dinamicamente -->
             </div>
+          </div>
 
-            <div class="form-group">
-              <label for="agendaClient">Cliente Vinculado</label>
-              <select id="agendaClient" class="form-control">
-                <option value="">Selecione um cliente (opcional)...</option>
-                <!-- JS populará -->
-              </select>
-            </div>
+          <!-- Formulário de Agendamento (Ocultável para associados) -->
+          <div id="agendaFormCard" class="chart-card" style="padding: 20px;">
+            <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-dark); margin-bottom: 16px;">Novo Compromisso</h3>
+            
+            <form id="agendaForm" onsubmit="event.preventDefault(); addAppointment();" style="display: flex; flex-direction: column; gap: 14px;">
+              <div class="form-group">
+                <label for="agendaTitle" class="required">Título / Assunto</label>
+                <input type="text" id="agendaTitle" class="form-control" placeholder="Ex: Audiência de Conciliação" required>
+              </div>
+              
+              <div class="form-group">
+                <label for="agendaStartAt" class="required">Data e Hora</label>
+                <input type="datetime-local" id="agendaStartAt" class="form-control" required>
+              </div>
 
-            <div class="form-group">
-              <label for="agendaCase">Processo / Caso</label>
-              <select id="agendaCase" class="form-control">
-                <option value="">Selecione um caso (opcional)...</option>
-                <!-- JS populará -->
-              </select>
-            </div>
+              <div class="form-group row">
+                <div>
+                  <label for="agendaAssignee">Responsável</label>
+                  <select id="agendaAssignee" class="form-control" required>
+                    <option value="">Selecione...</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="agendaClient">Cliente</label>
+                  <select id="agendaClient" class="form-control">
+                    <option value="">Opcional...</option>
+                  </select>
+                </div>
+              </div>
 
-            <div class="form-group">
-              <label for="agendaDescription">Observações / Descrição</label>
-              <textarea id="agendaDescription" class="form-control" rows="3" placeholder="Local, link do Teams ou detalhes adicionais..."></textarea>
-            </div>
+              <div class="form-group">
+                <label for="agendaCase">Processo / Caso</label>
+                <select id="agendaCase" class="form-control">
+                  <option value="">Selecione um caso (opcional)...</option>
+                </select>
+              </div>
 
-            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 6px;">
-              ➕ Agendar Compromisso
-            </button>
-          </form>
+              <div class="form-group">
+                <label for="agendaDescription">Observações / Descrição</label>
+                <textarea id="agendaDescription" class="form-control" rows="2" placeholder="Local, link do Teams ou detalhes adicionais..."></textarea>
+              </div>
+
+              <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 4px;">
+                ➕ Agendar Compromisso
+              </button>
+            </form>
+          </div>
         </div>
 
-        <!-- Lista de Compromissos -->
-        <div class="table-card">
+        <!-- Coluna da Direita: Lista de Compromissos e Atividades do Dia -->
+        <div class="table-card" style="display: flex; flex-direction: column; gap: 0;">
           <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-            <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700;">Próximos Compromissos</h3>
+            <div>
+              <h3 id="selectedDayTitle" style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-dark);">Compromissos de Hoje</h3>
+              <p id="selectedDaySub" style="margin: 2px 0 0 0; font-size: 0.8rem; color: var(--text-muted);"></p>
+            </div>
             
             <!-- Filtros de Agenda -->
             <div style="display: flex; gap: 10px; align-items: center;">
               <input type="text" id="searchAgenda" class="form-control" placeholder="Buscar compromisso..." oninput="renderAppointmentsList()" style="width: 180px; height: 32px; font-size: 0.8rem; padding: 6px 10px;">
-              <select id="filterAgendaDate" class="form-control" onchange="renderAppointmentsList()" style="width: 120px; height: 32px; font-size: 0.8rem; padding: 4px 6px;">
-                <option value="all">Todos</option>
-                <option value="today" selected>Hoje</option>
+              <select id="filterAgendaDate" class="form-control" onchange="handleAgendaFilterChange()" style="width: 130px; height: 32px; font-size: 0.8rem; padding: 4px 6px;">
+                <option value="selected" selected>Dia Selecionado</option>
+                <option value="today">Hoje</option>
                 <option value="week">Esta Semana</option>
+                <option value="all">Todos</option>
               </select>
             </div>
           </div>
 
+          <!-- Container de Aniversariantes do Dia Selecionado -->
+          <div id="selectedDayBirthdaysContainer" style="display: none; padding: 14px 20px; margin: 16px 20px 0 20px; border-radius: var(--radius); background: linear-gradient(135deg, #fef3c7, #fde68a); border: 1px solid #fcd34d; color: #92400e; box-shadow: var(--shadow-sm); align-items: center; gap: 12px; font-weight: 500; font-size: 0.85rem;">
+            <span style="font-size: 1.5rem;">🎂</span>
+            <div id="selectedDayBirthdaysText"></div>
+          </div>
+
           <!-- Cards de compromissos no estilo timeline -->
-          <div id="appointmentsListContainer" style="padding: 20px; display: flex; flex-direction: column; gap: 16px; max-height: 550px; overflow-y: auto;">
+          <div id="appointmentsListContainer" style="padding: 20px; display: flex; flex-direction: column; gap: 16px; max-height: 600px; overflow-y: auto;">
             <!-- Renderizado dinamicamente via JS -->
           </div>
         </div>
@@ -1220,12 +1268,18 @@
               <input type="tel" id="clientPhoneInput" class="form-control" placeholder="(00) 00000-0000">
             </div>
           </div>
-          <div class="form-group">
-            <label for="clientActiveInput">Cadastro Ativo?</label>
-            <select id="clientActiveInput" class="form-control">
-              <option value="true">Sim</option>
-              <option value="false">Não</option>
-            </select>
+          <div class="form-group row">
+            <div>
+              <label for="clientBirthInput">Data de Nascimento / Fundação</label>
+              <input type="date" id="clientBirthInput" class="form-control">
+            </div>
+            <div>
+              <label for="clientActiveInput">Cadastro Ativo?</label>
+              <select id="clientActiveInput" class="form-control">
+                <option value="true">Sim</option>
+                <option value="false">Não</option>
+              </select>
+            </div>
           </div>
         </div>
         <div class="modal-header" style="border-top: 1px solid var(--border-color); border-bottom: none;">
@@ -1534,12 +1588,18 @@
             <input type="number" step="0.01" min="0" id="memberHourlyRateInput" class="form-control"
               placeholder="0,00">
           </div>
-          <div class="form-group">
-            <label for="memberActiveSelect">Colaborador Ativo?</label>
-            <select id="memberActiveSelect" class="form-control">
-              <option value="true">Sim</option>
-              <option value="false">Não</option>
-            </select>
+          <div class="form-group row">
+            <div>
+              <label for="memberBirthInput">Data de Nascimento</label>
+              <input type="date" id="memberBirthInput" class="form-control">
+            </div>
+            <div>
+              <label for="memberActiveSelect">Colaborador Ativo?</label>
+              <select id="memberActiveSelect" class="form-control">
+                <option value="true">Sim</option>
+                <option value="false">Não</option>
+              </select>
+            </div>
           </div>
         </div>
         <div class="modal-header" style="border-top: 1px solid var(--border-color); border-bottom: none;">
@@ -1769,8 +1829,8 @@
 
   <!-- Scripts do App -->
   <script src="libs/qrcode.min.js"></script>
-  <script src="supabase-client.js?v=2.0.3"></script>
-  <script src="app.js?v=2.0.3"></script>
+  <script src="supabase-client.js?v=2.0.4"></script>
+  <script src="app.js?v=2.0.4"></script>
 </body>
 
 </html>
