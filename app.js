@@ -2914,9 +2914,9 @@ function renderOrgTasksTable() {
         <td style="text-align: center;">
           ${statusDropdown}
         </td>
-        <td>
+        <td style="word-break: break-word; overflow-wrap: break-word; max-width: 380px;">
           <strong>${task.activity}</strong>
-          ${task.description ? `<div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; font-weight: normal; font-style: italic;">💬 ${task.description}</div>` : ''}
+          ${task.description ? `<div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; font-weight: normal; font-style: italic; word-break: break-word; overflow-wrap: break-word; white-space: pre-wrap;">💬 ${task.description}</div>` : ''}
         </td>
         <td><span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-primary); border: 1px solid var(--border-color);">${assigneeName}</span></td>
         <td ${deadlineStyle}>${formattedDeadline} ${isOverdue ? '⚠️ Atrasado' : ''}</td>
@@ -3967,12 +3967,12 @@ function renderAppointmentsList() {
 
           <!-- Informações do Agendamento -->
           <div style="display: flex; flex-direction: column; gap: 4px;">
-            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-              <h4 style="margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-dark);">${ap.title}</h4>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; word-break: break-word; overflow-wrap: break-word;">
+              <h4 style="margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-dark); word-break: break-word; overflow-wrap: break-word;">${ap.title}</h4>
               <span class="badge" style="font-size: 0.65rem; background: ${timeBadgeBg}; color: ${timeBadgeColor}; font-weight: 700; border: none; padding: 2px 6px;">${statusText}</span>
             </div>
             
-            <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">
+            <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; word-break: break-word; overflow-wrap: break-word; white-space: pre-wrap;">
               ${ap.description || 'Sem observações adicionais.'}
             </p>
 
