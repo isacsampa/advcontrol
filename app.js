@@ -3296,12 +3296,42 @@ async function fetchCaseAIAnalysis(caseObj) {
   loader.style.display = 'block';
   content.style.display = 'none';
 
-  const andamentos = getMockCaseAndamentos(caseObj);
+  let andamentos = '';
+  let detailsText = '';
+  let usingRealData = false;
+
+  if (caseObj.case_number && caseObj.case_number.replace(/\D/g, '').length === 20) {
+    try {
+      const djResponse = await fetch('/api/datajud', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ numeroProcesso: caseObj.case_number })
+      });
+      if (djResponse.ok) {
+        const djData = await djResponse.json();
+        if (djData.success) {
+          andamentos = djData.movimentos;
+          detailsText = `Classe: ${djData.classe} | Órgão Julgador: ${djData.orgaoJulgador}\n`;
+          usingRealData = true;
+          showToast("Processo localizado no Datajud! Analisando andamentos reais...", "success");
+        }
+      }
+    } catch (e) {
+      console.warn("Falha ao buscar processo no Datajud, usando simulação:", e);
+    }
+  }
+
+  if (!usingRealData) {
+    andamentos = getMockCaseAndamentos(caseObj);
+    showToast("Processo simulado ou não localizado no Datajud. Gerando análise baseada na matéria.", "info");
+  }
+
   const prompt = `
 Você é um assistente jurídico de inteligência artificial extremamente competente e empático chamado "Doutor IA", responsável por traduzir o andamento processual para o cliente final e sugerir tarefas ao advogado.
 
-Analise o seguinte histórico de movimentações jurídicas reais (andamentos processuais do tribunal) deste caso de título "${caseObj.title}" e número de processo "${caseObj.case_number || 'Não informado'}":
+Analise o seguinte histórico de movimentações jurídicas deste caso de título "${caseObj.title}" e número de processo "${caseObj.case_number || 'Não informado'}":
 
+${detailsText}
 ${andamentos}
 
 Você deve obrigatoriamente responder com um objeto JSON estruturado contendo exatamente estes 4 campos de string:
@@ -3310,7 +3340,9 @@ Você deve obrigatoriamente responder com um objeto JSON estruturado contendo ex
 3. "proximos_passos_cliente": O que o cliente final deve fazer agora ou qual deve ser a expectativa dele em linguagem reconfortante.
 4. "proximos_passos_advogado": Uma lista detalhada em tópicos (usando tags HTML de listas ou parágrafos) com as ações técnicas e providências que o advogado do caso precisa tomar a seguir.
 
-Atenção: Retorne APENAS o JSON no formato puro. Não inclua blocos de código markdown ou texto explicativo extra fora do JSON.
+Atenção crucial sobre a formatação do JSON:
+- Retorne APENAS o JSON no formato puro. Não inclua blocos de código markdown ou texto explicativo extra fora do JSON.
+- DENTRO das strings dos campos de texto do JSON, NUNCA utilize aspas duplas adicionais. Se precisar fazer citações ou destacar algum termo jurídiquez, utilize obrigatoriamente aspas simples ('). Exemplo: utilize 'tutela de urgência' em vez de "tutela de urgência". Isso evita quebras no parser de JSON.
 `;
 
   try {
