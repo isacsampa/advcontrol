@@ -176,9 +176,23 @@ Retorne APENAS o JSON puro. Não inclua blocos markdown na resposta.
   cleanText = cleanText.trim();
 
   const startIdx = cleanText.indexOf('{');
-  const endIdx = cleanText.lastIndexOf('}');
-  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-    cleanText = cleanText.slice(startIdx, endIdx + 1);
+  if (startIdx !== -1) {
+    let braceCount = 0;
+    let endIdx = -1;
+    for (let i = startIdx; i < cleanText.length; i++) {
+      if (cleanText[i] === '{') {
+        braceCount++;
+      } else if (cleanText[i] === '}') {
+        braceCount--;
+        if (braceCount === 0) {
+          endIdx = i;
+          break;
+        }
+      }
+    }
+    if (endIdx !== -1) {
+      cleanText = cleanText.slice(startIdx, endIdx + 1);
+    }
   }
 
   return JSON.parse(cleanText);
