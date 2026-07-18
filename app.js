@@ -3276,7 +3276,8 @@ Atenção: Retorne APENAS o JSON no formato puro. Não inclua blocos de código 
       },
       body: JSON.stringify({
         prompt: prompt,
-        responseJson: true
+        responseJson: true,
+        tenantId: getEffectiveTenantId()
       })
     });
 
@@ -3451,7 +3452,8 @@ Instruções importantes:
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        prompt: prompt
+        prompt: prompt,
+        tenantId: getEffectiveTenantId()
       })
     });
 
@@ -3569,7 +3571,8 @@ Você deve responder rigorosamente com um objeto JSON puro, sem blocos de códig
         prompt: prompt,
         mimeType: mimeType,
         base64Data: base64Data,
-        responseJson: true
+        responseJson: true,
+        tenantId: getEffectiveTenantId()
       })
     });
 
@@ -4150,6 +4153,11 @@ function initOfficeSettingsTab() {
   } else {
     document.getElementById('settingsPixQRPreviewContainer').style.display = 'none';
   }
+
+  const geminiInput = document.getElementById('settingsGeminiKey');
+  if (geminiInput) {
+    geminiInput.value = settings.gemini_api_key || '';
+  }
 }
 
 window.removeSettingsLogo = function() {
@@ -4170,6 +4178,9 @@ window.saveOfficeSettingsForm = async function() {
 
   showLoader(true);
   try {
+    const geminiInput = document.getElementById('settingsGeminiKey');
+    const geminiKeyValue = geminiInput ? geminiInput.value.trim() : null;
+
     const payload = {
       office_name: document.getElementById('settingsOfficeName').value.trim(),
       responsible_lawyer: document.getElementById('settingsResponsibleLawyer').value.trim(),
@@ -4183,13 +4194,26 @@ window.saveOfficeSettingsForm = async function() {
       beneficiary_name: document.getElementById('settingsBeneficiaryName').value.trim(),
       pix_key: document.getElementById('settingsPixKey').value.trim(),
       pix_qr_base64: settingsPixQRBase64 || null,
+      gemini_api_key: geminiKeyValue || null,
       onboarding_completed: true
     };
 
-    const saved = await updateOfficeSettings(tenantId, payload);
+    let saved;
+    try {
+      saved = await updateOfficeSettings(tenantId, payload);
+      showToast("Configurações do escritório atualizadas!", "success");
+    } catch (dbErr) {
+      if (dbErr.message && (dbErr.message.includes('column') || dbErr.message.includes('gemini_api_key'))) {
+        console.warn("A coluna 'gemini_api_key' não existe no Supabase. Salvando dados restantes...");
+        delete payload.gemini_api_key;
+        saved = await updateOfficeSettings(tenantId, payload);
+        showToast("Configurações salvas! (Chave de IA ignorada: adicione a coluna 'gemini_api_key' no Supabase).", "warning");
+      } else {
+        throw dbErr;
+      }
+    }
     AppState.officeSettings = saved;
     applyOfficeTheme(saved);
-    showToast("Configurações do escritório atualizadas!", "success");
     initBillingGeneratorTab();
   } catch (err) {
     showToast("Erro ao salvar: " + err.message, "error");

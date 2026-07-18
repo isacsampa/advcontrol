@@ -603,6 +603,7 @@ create table if not exists public.tenant_settings (
   beneficiary_name text,
   pix_key text,
   pix_qr_base64 text,
+  gemini_api_key text,
   onboarding_completed boolean default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
