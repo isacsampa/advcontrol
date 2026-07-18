@@ -3175,6 +3175,10 @@ document.addEventListener('click', function(e) {
 
 const GEMINI_API_KEY = 'AQ.Ab8RN6LIaHB84e2gofarA2d5ROLtHBLxUnBaMaijuiWE-rCWgA';
 
+function getEffectiveGeminiKey() {
+  return localStorage.getItem('advcontrol_gemini_api_key') || GEMINI_API_KEY || '';
+}
+
 /**
  * Retorna um histórico simulado de andamentos complexos (juridiquês) para a IA processar.
  * Caso o processo seja real (CNJ), simula andamentos realistas baseado na matéria.
@@ -3267,7 +3271,9 @@ Atenção: Retorne APENAS o JSON no formato puro. Não inclua blocos de código 
 `;
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    const model = "gemini-1.5-flash";
+    const apiKey = getEffectiveGeminiKey();
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -3449,7 +3455,9 @@ Instruções importantes:
 `;
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    const model = "gemini-1.5-flash";
+    const apiKey = getEffectiveGeminiKey();
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -3568,7 +3576,9 @@ Você deve responder rigorosamente com um objeto JSON puro, sem blocos de códig
 `;
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    const model = "gemini-1.5-flash";
+    const apiKey = getEffectiveGeminiKey();
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -4168,6 +4178,12 @@ function initOfficeSettingsTab() {
   } else {
     document.getElementById('settingsPixQRPreviewContainer').style.display = 'none';
   }
+
+  // Carrega chave do Gemini do localStorage
+  const geminiKeyEl = document.getElementById('settingsGeminiKey');
+  if (geminiKeyEl) {
+    geminiKeyEl.value = localStorage.getItem('advcontrol_gemini_api_key') || '';
+  }
 }
 
 window.removeSettingsLogo = function() {
@@ -4207,6 +4223,13 @@ window.saveOfficeSettingsForm = async function() {
     const saved = await updateOfficeSettings(tenantId, payload);
     AppState.officeSettings = saved;
     applyOfficeTheme(saved);
+    
+    // Grava chave do Gemini no localStorage
+    const geminiKeyInput = document.getElementById('settingsGeminiKey');
+    if (geminiKeyInput) {
+      localStorage.setItem('advcontrol_gemini_api_key', geminiKeyInput.value.trim());
+    }
+
     showToast("Configurações do escritório atualizadas!", "success");
     initBillingGeneratorTab();
   } catch (err) {

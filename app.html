@@ -8,7 +8,7 @@
   <meta name="description" content="AdvControl — Sistema SaaS de gestão completa para escritórios de advocacia. Fluxo de caixa, clientes, processos e timesheets em um só lugar.">
 
   <!-- Estilos e Fontes -->
-  <link rel="stylesheet" href="styles.css?v=1.9.6">
+  <link rel="stylesheet" href="styles.css?v=1.9.7">
 
   <!-- Supabase JS Client v2 (local) -->
   <script src="libs/supabase.min.js"></script>
@@ -16,7 +16,7 @@
   <!-- Chart.js para Gráficos Dinâmicos (local) -->
   <script src="libs/chart.min.js"></script>
   <!-- Logo JR embutida (carrega automaticamente nos boletos) -->
-  <script src="logo-jr.js?v=1.9.6"></script>
+  <script src="logo-jr.js?v=1.9.7"></script>
   <!-- Fail-safe instantâneo para Convites de Equipe (Ignora cache de JS) -->
   <script>
     (function() {
@@ -958,6 +958,14 @@
                 <label for="settingsAddress">Endereço Completo</label>
                 <input type="text" id="settingsAddress" class="form-control" placeholder="Ex: Av. Paulista, 1000 - São Paulo/SP">
               </div>
+
+              <div class="form-group" style="margin-top: 8px; border-top: 1px solid var(--border-color); padding-top: 16px;">
+                <label for="settingsGeminiKey">Chave de API do Google AI Studio (Gemini)</label>
+                <input type="password" id="settingsGeminiKey" class="form-control" placeholder="AIzaSy... (Opcional)">
+                <small style="display: block; margin-top: 4px; font-size: 0.75rem; color: var(--text-muted); line-height: 1.4;">
+                  Insira sua chave do Google AI Studio para ativar as funcionalidades de inteligência artificial (como Doutor IA e Rascunho com IA).
+                </small>
+              </div>
             </div>
 
             <!-- Coluna 2: Identidade Visual e Financeiro -->
@@ -1761,8 +1769,8 @@
 
   <!-- Scripts do App -->
   <script src="libs/qrcode.min.js"></script>
-  <script src="supabase-client.js?v=1.9.6"></script>
-  <script src="app.js?v=1.9.6"></script>
+  <script src="supabase-client.js?v=1.9.7"></script>
+  <script src="app.js?v=1.9.7"></script>
 </body>
 
 </html>
