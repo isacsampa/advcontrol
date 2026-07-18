@@ -3173,11 +3173,7 @@ document.addEventListener('click', function(e) {
 // INTEGRAÇÃO DE INTELIGÊNCIA ARTIFICIAL: DOUTOR IA EXPLICA
 // =========================================================================
 
-const GEMINI_API_KEY = 'AQ.Ab8RN6LIaHB84e2gofarA2d5ROLtHBLxUnBaMaijuiWE-rCWgA';
-
-function getEffectiveGeminiKey() {
-  return localStorage.getItem('advcontrol_gemini_api_key') || GEMINI_API_KEY || '';
-}
+// A inteligência artificial é processada de forma segura através do proxy de backend (/api/gemini)
 
 /**
  * Retorna um histórico simulado de andamentos complexos (juridiquês) para a IA processar.
@@ -3271,22 +3267,14 @@ Atenção: Retorne APENAS o JSON no formato puro. Não inclua blocos de código 
 `;
 
   try {
-    const model = "gemini-1.5-flash";
-    const apiKey = getEffectiveGeminiKey();
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+    const response = await fetch('/api/gemini', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }],
-        generationConfig: {
-          responseMimeType: "application/json"
-        }
+        prompt: prompt,
+        responseJson: true
       })
     });
 
@@ -3455,19 +3443,13 @@ Instruções importantes:
 `;
 
   try {
-    const model = "gemini-1.5-flash";
-    const apiKey = getEffectiveGeminiKey();
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+    const response = await fetch('/api/gemini', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }]
+        prompt: prompt
       })
     });
 
@@ -3576,28 +3558,16 @@ Você deve responder rigorosamente com um objeto JSON puro, sem blocos de códig
 `;
 
   try {
-    const model = "gemini-1.5-flash";
-    const apiKey = getEffectiveGeminiKey();
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+    const response = await fetch('/api/gemini', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: prompt },
-            {
-              inlineData: {
-                mimeType: mimeType,
-                data: base64Data
-              }
-            }
-          ]
-        }],
-        generationConfig: {
-          responseMimeType: "application/json"
-        }
+        prompt: prompt,
+        mimeType: mimeType,
+        base64Data: base64Data,
+        responseJson: true
       })
     });
 
@@ -4178,12 +4148,6 @@ function initOfficeSettingsTab() {
   } else {
     document.getElementById('settingsPixQRPreviewContainer').style.display = 'none';
   }
-
-  // Carrega chave do Gemini do localStorage
-  const geminiKeyEl = document.getElementById('settingsGeminiKey');
-  if (geminiKeyEl) {
-    geminiKeyEl.value = localStorage.getItem('advcontrol_gemini_api_key') || '';
-  }
 }
 
 window.removeSettingsLogo = function() {
@@ -4223,13 +4187,6 @@ window.saveOfficeSettingsForm = async function() {
     const saved = await updateOfficeSettings(tenantId, payload);
     AppState.officeSettings = saved;
     applyOfficeTheme(saved);
-    
-    // Grava chave do Gemini no localStorage
-    const geminiKeyInput = document.getElementById('settingsGeminiKey');
-    if (geminiKeyInput) {
-      localStorage.setItem('advcontrol_gemini_api_key', geminiKeyInput.value.trim());
-    }
-
     showToast("Configurações do escritório atualizadas!", "success");
     initBillingGeneratorTab();
   } catch (err) {
