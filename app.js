@@ -3346,7 +3346,19 @@ Atenção: Retorne APENAS o JSON no formato puro. Não inclua blocos de código 
       throw new Error("Resposta da IA vazia ou malformada.");
     }
 
-    const parsedJson = JSON.parse(responseText.trim());
+    let cleanText = responseText.trim();
+    if (cleanText.startsWith('```')) {
+      cleanText = cleanText.replace(/^```(?:json|text)?\n?/i, '').replace(/\n?```$/i, '');
+    }
+    cleanText = cleanText.trim();
+
+    const startIdx = cleanText.indexOf('{');
+    const endIdx = cleanText.lastIndexOf('}');
+    if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+      cleanText = cleanText.slice(startIdx, endIdx + 1);
+    }
+
+    const parsedJson = JSON.parse(cleanText);
     
     // Salva no cache do localStorage
     localStorage.setItem(`case_ai_analysis_${caseObj.id}`, JSON.stringify(parsedJson));

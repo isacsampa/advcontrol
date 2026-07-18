@@ -169,7 +169,19 @@ Retorne APENAS o JSON puro. Não inclua blocos markdown na resposta.
 
   const data = await response.json();
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  return JSON.parse(text.trim());
+  let cleanText = text.trim();
+  if (cleanText.startsWith('```')) {
+    cleanText = cleanText.replace(/^```(?:json|text)?\n?/i, '').replace(/\n?```$/i, '');
+  }
+  cleanText = cleanText.trim();
+
+  const startIdx = cleanText.indexOf('{');
+  const endIdx = cleanText.lastIndexOf('}');
+  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+    cleanText = cleanText.slice(startIdx, endIdx + 1);
+  }
+
+  return JSON.parse(cleanText);
 }
 
 async function sendZapiText(phone, message) {
