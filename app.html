@@ -8,7 +8,7 @@
   <meta name="description" content="AdvControl — Sistema SaaS de gestão completa para escritórios de advocacia. Fluxo de caixa, clientes, processos e timesheets em um só lugar.">
 
   <!-- Estilos e Fontes -->
-  <link rel="stylesheet" href="styles.css?v=1.9.5">
+  <link rel="stylesheet" href="styles.css?v=1.9.6">
 
   <!-- Supabase JS Client v2 (local) -->
   <script src="libs/supabase.min.js"></script>
@@ -16,7 +16,7 @@
   <!-- Chart.js para Gráficos Dinâmicos (local) -->
   <script src="libs/chart.min.js"></script>
   <!-- Logo JR embutida (carrega automaticamente nos boletos) -->
-  <script src="logo-jr.js?v=1.9.5"></script>
+  <script src="logo-jr.js?v=1.9.6"></script>
   <!-- Fail-safe instantâneo para Convites de Equipe (Ignora cache de JS) -->
   <script>
     (function() {
@@ -733,15 +733,9 @@
               <input type="text" id="bgPixKey" class="form-control" value="financeiro@regojunior.adv.br" readonly required>
             </div>
 
-            <div class="form-group row">
-              <div style="grid-column: span 2;">
-                <label for="bgPhone">Telefone de Contato</label>
-                <input type="text" id="bgPhone" class="form-control" value="(11) 3254-8900" readonly>
-              </div>
-              <div style="display: none;">
-                <label for="bgLogo">Logomarca (Imagem)</label>
-                <input type="file" id="bgLogo" class="form-control" accept="image/*" style="padding: 4px;">
-              </div>
+            <div class="form-group">
+              <label for="bgPhone">Telefone de Contato</label>
+              <input type="text" id="bgPhone" class="form-control" value="(11) 3254-8900" readonly>
             </div>
 
             <div class="form-group">
@@ -1518,12 +1512,13 @@
             <input type="text" id="memberNameInput" class="form-control" disabled>
           </div>
           <div class="form-group">
-            <label for="memberRoleSelect" class="required">Papel de Acesso (Role)</label>
+            <label for="memberRoleSelect" class="required">Papel de Acesso (Cargo)</label>
             <select id="memberRoleSelect" class="form-control" required>
-              <option value="owner">Owner (Administrador / Dono)</option>
-              <option value="partner">Partner (Sócio)</option>
-              <option value="associate">Associate (Associado)</option>
-              <option value="financial">Financial (Financeiro)</option>
+              <option value="owner">Proprietário (Dono)</option>
+              <option value="partner">Sócio</option>
+              <option value="associate">Advogado Parceiro</option>
+              <option value="financial">Assessor Jurídico</option>
+              <option value="secretary">Secretária</option>
             </select>
           </div>
           <div class="form-group">
@@ -1766,8 +1761,8 @@
 
   <!-- Scripts do App -->
   <script src="libs/qrcode.min.js"></script>
-  <script src="supabase-client.js?v=1.9.5"></script>
-  <script src="app.js?v=1.9.5"></script>
+  <script src="supabase-client.js?v=1.9.6"></script>
+  <script src="app.js?v=1.9.6"></script>
 </body>
 
 </html>

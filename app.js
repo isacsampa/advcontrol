@@ -64,6 +64,26 @@ function canAccessTab(tabId) {
 }
 
 /**
+ * Recupera o tenant_id ativo do usuário de forma blindada contra valores indefinidos.
+ */
+function getEffectiveTenantId() {
+  if (AppState.userProfile?.tenant_id) return AppState.userProfile.tenant_id;
+  
+  // Tenta extrair da sessão ativa
+  const session = AppState.session || JSON.parse(localStorage.getItem('advcontrol_session_cache') || 'null');
+  if (session?.user) {
+    if (session.user.user_metadata?.tenant_id) {
+      return session.user.user_metadata.tenant_id;
+    }
+    const cachedProfile = JSON.parse(localStorage.getItem(`advcontrol_profile_${session.user.id}`) || 'null');
+    if (cachedProfile?.tenant_id) {
+      return cachedProfile.tenant_id;
+    }
+  }
+  return null;
+}
+
+/**
  * Aplica restrições visuais no menu lateral baseadas no papel do usuário.
  * Exibe apenas as abas permitidas e atualiza o badge de papel.
  */
@@ -79,10 +99,10 @@ function applyNavPermissions() {
 
 
   const roleLabels = {
-    owner:     '👑 Owner (Dono)',
-    partner:   '🤝 Sócio (Partner)',
-    associate: '👤 Associado',
-    financial: '💼 Financeiro',
+    owner:     '👑 Proprietário (Dono)',
+    partner:   '🤝 Sócio',
+    associate: '👤 Advogado Parceiro',
+    financial: '💼 Assessor Jurídico',
     secretary: '📞 Secretária',
   };
   const roleEl = document.getElementById('sidebarUserRole');
@@ -1062,10 +1082,11 @@ function renderMembersTable() {
     
     // Mapeia labels de cargo
     const roleLabels = {
-      'owner': 'Owner (Dono)',
-      'partner': 'Sócio (Partner)',
-      'associate': 'Associado (Associate)',
-      'financial': 'Controladoria (Financial)'
+      'owner': 'Proprietário (Dono)',
+      'partner': 'Sócio',
+      'associate': 'Advogado Parceiro',
+      'financial': 'Assessor Jurídico',
+      'secretary': 'Secretária'
     };
 
     tr.innerHTML = `
@@ -1143,6 +1164,12 @@ async function handleClientFormSubmit(e) {
     is_active: document.getElementById('clientActiveInput').value === "true"
   };
 
+  const tenantId = getEffectiveTenantId();
+  if (!tenantId) {
+    showToast("Erro: Identificador do escritório não encontrado. Faça login novamente.", "error");
+    return;
+  }
+
   showLoader(true);
   try {
     if (id) {
@@ -1155,7 +1182,7 @@ async function handleClientFormSubmit(e) {
       }
       showToast("Cliente atualizado com sucesso!", "success");
     } else {
-      const created = await createClient(AppState.userProfile.tenant_id, payload);
+      const created = await createClient(tenantId, payload);
       if (created) {
         AppState.clients.push(created);
       }
@@ -1214,7 +1241,11 @@ function openCaseForm(caseId = null) {
   populateSelect(clientSelect, AppState.clients.filter(c => c.is_active), 'id', 'name', 'Selecione o Cliente...');
   
   // Filtra advogados (sócios, owners e associados)
-  const lawyers = AppState.members.filter(m => m.is_active && m.role !== 'financial');
+  let membersList = [...(AppState.members || [])];
+  if (AppState.userProfile && !membersList.some(m => m.id === AppState.userProfile.id)) {
+    membersList.push(AppState.userProfile);
+  }
+  const lawyers = membersList.filter(m => m.is_active !== false && m.role !== 'financial');
   populateSelect(originatingSelect, lawyers, 'id', 'full_name', 'Nenhum (Sem Originação)');
   populateSelect(responsibleSelect, lawyers, 'id', 'full_name', 'Nenhum (Sem Responsável)');
 
@@ -1253,6 +1284,12 @@ async function handleCaseFormSubmit(e) {
     status: document.getElementById('caseStatusSelect').value
   };
 
+  const tenantId = getEffectiveTenantId();
+  if (!tenantId) {
+    showToast("Erro: Identificador do escritório não encontrado. Faça login novamente.", "error");
+    return;
+  }
+
   showLoader(true);
   try {
     if (id) {
@@ -1265,7 +1302,7 @@ async function handleCaseFormSubmit(e) {
       }
       showToast("Processo atualizado com sucesso!", "success");
     } else {
-      const created = await createCase(AppState.userProfile.tenant_id, payload);
+      const created = await createCase(tenantId, payload);
       if (created) {
         const cl = AppState.clients.find(c => c.id === created.client_id);
         created.clients = cl ? { name: cl.name } : null;
@@ -2261,16 +2298,15 @@ function initBillingGeneratorTab() {
   const pixKeyInput = document.getElementById('bgPixKey');
   const firstDueDateInput = document.getElementById('bgFirstDueDate');
 
-  // Preenche dados padrão a partir de configurações do escritório (com fallbacks)
-  const settings = AppState.officeSettings;
-  beneficiaryInput.value = settings?.beneficiary_name || "Rego Júnior Advogados";
-  bankInput.value = settings?.bank_name || "Banco Cora";
-  pixKeyInput.value = settings?.pix_key || "financeiro@regojunior.adv.br";
-  phoneInput.value = settings?.phone || "(11) 3254-8900";
-  addressInput.value = settings?.address || "Av. Paulista, 1200 - Cj. 41 - Bela Vista - São Paulo/SP";
+  // Preenche dados fixos e obrigatórios da Rego Júnior Advogados
+  beneficiaryInput.value = "Rego Júnior Advogados";
+  bankInput.value = "Banco Cora";
+  pixKeyInput.value = "financeiro@regojunior.adv.br";
+  phoneInput.value = "(11) 3254-8900";
+  addressInput.value = "Av. Paulista, 1200 - Cj. 41 - Bela Vista - São Paulo/SP";
 
-  // Inicializa logo corporativa
-  billingLogoBase64 = settings?.logo_base64 || ((typeof JR_LOGO_BASE64 !== 'undefined') ? JR_LOGO_BASE64 : '');
+  // Inicializa logo corporativa fixa da Rego Júnior
+  billingLogoBase64 = (typeof JR_LOGO_BASE64 !== 'undefined') ? JR_LOGO_BASE64 : '';
 
   // Define data padrão de vencimento para 30 dias a partir de hoje
   if (!firstDueDateInput.value) {
@@ -2297,11 +2333,6 @@ function initBillingGeneratorTab() {
 
   totalInput.addEventListener('input', calculateInstallment);
   installmentsInput.addEventListener('input', calculateInstallment);
-
-  // Listener do upload de logo
-  const logoInput = document.getElementById('bgLogo');
-  logoInput.removeEventListener('change', handleLogoUpload);
-  logoInput.addEventListener('change', handleLogoUpload);
 
   // Executa render inicial do preview se já houver preenchimento
   if (totalInput.value) {
